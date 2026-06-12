@@ -1,7 +1,7 @@
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
@@ -15,23 +15,32 @@ class AnswerEvalResult(BaseModel):
     model_answer_hint: str = Field(description="Brief hint of what an ideal answer would cover")
 
 
+def get_llm(temperature: float = 0.1) -> ChatOpenAI:
+    return ChatOpenAI(
+        model="google/gemini-2.5-flash",
+        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+        openai_api_base="https://openrouter.ai/api/v1",
+        temperature=temperature,
+        default_headers={
+            "HTTP-Referer": "https://careerapex.ai",
+            "X-Title": "CareerApex AI",
+        },
+    )
+
+
 SYSTEM_PROMPT = """You are a strict but fair senior technical interviewer evaluating a candidate's answer.
 
-Score the answer honestly. Do not inflate scores. A average answer scores 50-65. A strong answer scores 75-85. An exceptional answer scores 90+.
+Score honestly. Average answer: 50-65. Strong: 75-85. Exceptional: 90+.
 
-Return ONLY valid JSON — no markdown, no explanation:
+Return ONLY valid JSON — no markdown:
 {{
   "score": <integer 0-100>,
   "confidence_score": <integer 0-100>,
-  "feedback": "<2-3 sentence overall feedback>",
+  "feedback": "<2-3 sentence feedback>",
   "strengths": ["<strength 1>", "<strength 2>"],
   "improvements": ["<improvement 1>", "<improvement 2>"],
-  "model_answer_hint": "<what an ideal answer would cover in 2-3 sentences>"
-}}
-
-Scoring rubric:
-- score: measures correctness, depth, relevance, and structure of the answer
-- confidence_score: measures clarity, assertiveness, specificity, and use of concrete examples"""
+  "model_answer_hint": "<ideal answer in 2-3 sentences>"
+}}"""
 
 USER_PROMPT = """QUESTION: {question}
 CATEGORY: {category}
@@ -51,24 +60,16 @@ def evaluate_answer(question: str, answer: str, category: str = "technical") -> 
             "model_answer_hint": "A complete answer is required for evaluation.",
         }
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=os.getenv("GEMINI_API_KEY"),
-        temperature=0.1,
-    )
-
+    llm = get_llm(temperature=0.1)
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", USER_PROMPT),
     ])
-
     parser = JsonOutputParser(pydantic_object=AnswerEvalResult)
     chain = prompt | llm | parser
 
-    result = chain.invoke({
+    return chain.invoke({
         "question": question,
         "answer": answer,
         "category": category,
     })
-
-    return result

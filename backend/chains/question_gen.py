@@ -1,7 +1,7 @@
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
@@ -27,6 +27,19 @@ def get_all_chunks(collection_name: str) -> str:
     return "\n\n".join(results["documents"])
 
 
+def get_llm(temperature: float = 0.4) -> ChatOpenAI:
+    return ChatOpenAI(
+        model="google/gemini-2.5-flash",
+        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+        openai_api_base="https://openrouter.ai/api/v1",
+        temperature=temperature,
+        default_headers={
+            "HTTP-Referer": "https://careerapex.ai",
+            "X-Title": "CareerApex AI",
+        },
+    )
+
+
 SYSTEM_PROMPT = """You are an expert technical interviewer with 15 years of experience hiring AI and software engineers.
 
 Generate a set of targeted interview questions based on the resume and job description provided.
@@ -43,12 +56,7 @@ Return ONLY valid JSON — no markdown, no explanation:
   ]
 }}
 
-Generate exactly {count} questions distributed across these categories:
-- technical: questions about skills, tools, and concepts required by the JD
-- behavioural: STAR-format questions about past experience
-- resume: questions that directly challenge or probe items on the resume
-- situational: hypothetical scenario questions relevant to the role
-
+Generate exactly {count} questions distributed across categories.
 Mix difficulty levels: 30% easy, 50% medium, 20% hard."""
 
 USER_PROMPT = """RESUME:
@@ -69,17 +77,11 @@ def generate_questions(session_id: str, count: int = 10) -> dict:
     if not jd_text:
         raise ValueError(f"No JD found for session: {session_id}")
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=os.getenv("GEMINI_API_KEY"),
-        temperature=0.4,
-    )
-
+    llm = get_llm(temperature=0.4)
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", USER_PROMPT),
     ])
-
     parser = JsonOutputParser(pydantic_object=QuestionsResult)
     chain = prompt | llm | parser
 
@@ -88,5 +90,4 @@ def generate_questions(session_id: str, count: int = 10) -> dict:
         "jd_text": jd_text[:2500],
         "count": count,
     })
-
     return result

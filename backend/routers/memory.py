@@ -1,93 +1,88 @@
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+"""
+Memory Router — Session storage and retrieval endpoints.
+"""
 
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional, Any, Dict
 from memory.session_store import (
-    save_session,
-    get_session,
-    get_user_sessions,
-    search_memory,
-    get_progress_summary,
+    save_session, get_session, list_sessions,
+    search_sessions, get_progress_summary, delete_session,
 )
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
 
-# ── Request models ─────────────────────────────────────────────────────────────
-
 class SaveSessionRequest(BaseModel):
     session_id: str
-    user_id: Optional[str] = "default"
-    match_score: Optional[int] = None
-    skill_gaps: Optional[List[Dict]] = []
-    strengths: Optional[List[str]] = []
-    questions_asked: Optional[int] = 0
-    avg_answer_score: Optional[float] = None
-    resume_filename: Optional[str] = None
-    jd_filename: Optional[str] = None
-    notes: Optional[str] = None
+    resume_filename: str = ""
+    jd_filename: str = ""
+    match_score: int = 0
+    skill_gaps: List[Any] = []
+    strengths: List[str] = []
+    questions_asked: int = 0
+    avg_answer_score: float = 0.0
+    analysis_data: Optional[Dict] = None
+    user_id: str = "default"
 
 
 class SearchRequest(BaseModel):
     query: str
-    user_id: Optional[str] = "default"
-    top_k: Optional[int] = 3
+    n_results: int = 5
 
-
-# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/save")
-def save_session_endpoint(request: SaveSessionRequest):
-    """Save a session summary to career memory."""
+def save_session_endpoint(req: SaveSessionRequest):
     try:
-        result = save_session(
-            session_id=request.session_id,
-            user_id=request.user_id,
-            match_score=request.match_score,
-            skill_gaps=request.skill_gaps,
-            strengths=request.strengths,
-            questions_asked=request.questions_asked,
-            avg_answer_score=request.avg_answer_score,
-            resume_filename=request.resume_filename,
-            jd_filename=request.jd_filename,
-            notes=request.notes,
+        return save_session(
+            session_id=req.session_id,
+            resume_filename=req.resume_filename,
+            jd_filename=req.jd_filename,
+            match_score=req.match_score,
+            skill_gaps=req.skill_gaps,
+            strengths=req.strengths,
+            questions_asked=req.questions_asked,
+            avg_answer_score=req.avg_answer_score,
+            analysis_data=req.analysis_data,
+            user_id=req.user_id,
         )
-        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Save failed: {str(e)}")
 
 
 @router.get("/session/{session_id}")
 def get_session_endpoint(session_id: str):
-    """Get a specific session from memory."""
-    result = get_session(session_id)
-    if not result:
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found in memory.")
-    return result
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
+    return session
+
+
+@router.delete("/session/{session_id}")
+def delete_session_endpoint(session_id: str):
+    try:
+        result = delete_session(session_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
+        return {"deleted": True, "session_id": session_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
 
 @router.get("/sessions")
-def get_sessions_endpoint(user_id: str = Query(default="default")):
-    """Get all sessions for a user sorted by most recent."""
-    sessions = get_user_sessions(user_id)
-    return {"user_id": user_id, "count": len(sessions), "sessions": sessions}
+def list_sessions_endpoint(user_id: str = "default", limit: int = 100):
+    sessions = list_sessions(user_id=user_id, limit=limit)
+    return {"sessions": sessions, "count": len(sessions)}
 
 
 @router.post("/search")
-def search_memory_endpoint(request: SearchRequest):
-    """Semantic search across past sessions."""
-    try:
-        results = search_memory(
-            query=request.query,
-            user_id=request.user_id,
-            top_k=request.top_k,
-        )
-        return {"query": request.query, "results": results}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Memory search failed: {str(e)}")
+def search_sessions_endpoint(req: SearchRequest):
+    results = search_sessions(query=req.query, n_results=req.n_results)
+    return {"results": results, "count": len(results)}
 
 
 @router.get("/progress")
-def get_progress_endpoint(user_id: str = Query(default="default")):
-    """Get progress comparison between latest and previous session."""
-    return get_progress_summary(user_id)
+def get_progress_endpoint(user_id: str = "default"):
+    return get_progress_summary(user_id=user_id)

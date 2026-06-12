@@ -1,7 +1,7 @@
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -40,6 +40,20 @@ def get_all_chunks(collection_name: str) -> str:
     return "\n\n".join(results["documents"])
 
 
+def get_llm(temperature: float = 0.2) -> ChatOpenAI:
+    """Return OpenRouter-backed LLM instance."""
+    return ChatOpenAI(
+        model="google/gemini-2.5-flash",
+        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+        openai_api_base="https://openrouter.ai/api/v1",
+        temperature=temperature,
+        default_headers={
+            "HTTP-Referer": "https://careerapex.ai",
+            "X-Title": "CareerApex AI",
+        },
+    )
+
+
 # ── Prompt ─────────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are an expert technical recruiter and career coach with 15 years of experience.
@@ -57,8 +71,8 @@ Return ONLY valid JSON matching this exact structure — no markdown, no explana
       "priority": "<high|medium|low>"
     }}
   ],
-  "strengths": ["<strength 1>", "<strength 2>", ...],
-  "recommendations": ["<recommendation 1>", "<recommendation 2>", ...],
+  "strengths": ["<strength 1>", "<strength 2>"],
+  "recommendations": ["<recommendation 1>", "<recommendation 2>"],
   "summary": "<2-3 sentence summary>"
 }}"""
 
@@ -71,8 +85,6 @@ JOB DESCRIPTION:
 Analyse the resume against the job description and return the JSON gap analysis."""
 
 
-# ── Main analyser function ─────────────────────────────────────────────────────
-
 def run_gap_analysis(session_id: str) -> dict:
     resume_text = get_all_chunks(f"resume_{session_id}")
     jd_text = get_all_chunks(f"jd_{session_id}")
@@ -82,17 +94,11 @@ def run_gap_analysis(session_id: str) -> dict:
     if not jd_text:
         raise ValueError(f"No JD found for session: {session_id}")
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=os.getenv("GEMINI_API_KEY"),
-        temperature=0.2,
-    )
-
+    llm = get_llm(temperature=0.2)
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", USER_PROMPT),
     ])
-
     parser = JsonOutputParser(pydantic_object=GapAnalysisResult)
     chain = prompt | llm | parser
 
@@ -100,5 +106,4 @@ def run_gap_analysis(session_id: str) -> dict:
         "resume_text": resume_text[:6000],
         "jd_text": jd_text[:3000],
     })
-
     return result

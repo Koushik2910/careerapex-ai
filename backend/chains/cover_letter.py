@@ -1,5 +1,5 @@
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -14,17 +14,26 @@ def get_all_chunks(collection_name: str) -> str:
     return "\n\n".join(results["documents"])
 
 
-SYSTEM_PROMPT = """You are an expert career coach and professional writer who specialises in 
-writing compelling, personalised cover letters that get interviews.
+def get_llm(temperature: float = 0.6) -> ChatOpenAI:
+    return ChatOpenAI(
+        model="google/gemini-2.5-flash",
+        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+        openai_api_base="https://openrouter.ai/api/v1",
+        temperature=temperature,
+        default_headers={
+            "HTTP-Referer": "https://careerapex.ai",
+            "X-Title": "CareerApex AI",
+        },
+    )
 
+
+SYSTEM_PROMPT = """You are an expert career coach writing compelling cover letters that get interviews.
 Rules:
-- Write in a confident, professional tone
-- Never use clichés like "I am writing to express my interest"
-- Open with a strong hook — a specific achievement or insight
+- Open with a strong hook — a specific achievement
 - Connect resume achievements directly to JD requirements
-- Show genuine understanding of the company/role
-- Keep it to 3 paragraphs + closing — under 350 words
+- Keep it under 350 words, 3 paragraphs + closing
 - Sound human, not corporate
+- Never use "I am writing to express my interest"
 - Tone: {tone}"""
 
 USER_PROMPT = """RESUME:
@@ -33,7 +42,7 @@ USER_PROMPT = """RESUME:
 JOB DESCRIPTION:
 {jd_text}
 
-Write a targeted cover letter for this specific role based on this resume."""
+Write a targeted cover letter for this specific role."""
 
 
 def generate_cover_letter(session_id: str, tone: str = "professional") -> dict:
@@ -45,17 +54,11 @@ def generate_cover_letter(session_id: str, tone: str = "professional") -> dict:
     if not jd_text:
         raise ValueError(f"No JD found for session: {session_id}")
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=os.getenv("GEMINI_API_KEY"),
-        temperature=0.6,
-    )
-
+    llm = get_llm(temperature=0.6)
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", USER_PROMPT),
     ])
-
     chain = prompt | llm | StrOutputParser()
 
     cover_letter = chain.invoke({
@@ -63,8 +66,4 @@ def generate_cover_letter(session_id: str, tone: str = "professional") -> dict:
         "jd_text": jd_text[:2500],
         "tone": tone,
     })
-
-    return {
-        "cover_letter": cover_letter,
-        "word_count": len(cover_letter.split()),
-    }
+    return {"cover_letter": cover_letter, "word_count": len(cover_letter.split())}
