@@ -139,3 +139,53 @@ def get_session_info(session_id: str):
         "has_resume": has_resume,
         "has_jd": has_jd,
     }
+
+
+# ADD THIS ENDPOINT to your existing backend/routers/upload.py
+# Place it after the existing /upload/jd endpoint
+
+from pydantic import BaseModel
+
+class CopyResumeRequest(BaseModel):
+    source_session_id: str
+    target_session_id: str
+
+@router.post("/copy-resume")
+def copy_resume_chunks(req: CopyResumeRequest):
+    """
+    Copy resume chunks from one session to another.
+    Used when user selects a previously uploaded resume to compare against a new JD.
+    The existing ChromaDB embeddings are copied to the new session_id collection.
+    """
+    try:
+        from rag.chroma_client import get_or_create_collection
+
+        source_collection = get_or_create_collection(f"resume_{req.source_session_id}")
+        source_data = source_collection.get(include=["embeddings", "documents", "metadatas"])
+
+        if not source_data["ids"]:
+            raise HTTPException(status_code=404, detail=f"No resume found for session: {req.source_session_id}")
+
+        target_collection = get_or_create_collection(f"resume_{req.target_session_id}")
+
+        # Copy all chunks with new IDs
+        new_ids = [f"{req.target_session_id}_chunk_{i}" for i in range(len(source_data["ids"]))]
+
+        target_collection.upsert(
+            ids=new_ids,
+            embeddings=source_data["embeddings"],
+            documents=source_data["documents"],
+            metadatas=[{**m, "session_id": req.target_session_id} for m in source_data["metadatas"]],
+        )
+
+        return {
+            "status": "copied",
+            "source_session_id": req.source_session_id,
+            "target_session_id": req.target_session_id,
+            "chunks_copied": len(new_ids),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Copy failed: {str(e)}")
