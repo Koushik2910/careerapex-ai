@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LinkIcon, Loader2, Sparkles, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
@@ -7,6 +9,17 @@ import Sidebar from "@/components/Sidebar";
 import { optimizeLinkedIn, getHeadlineVariants } from "@/lib/api";
 
 type Tab = "optimize" | "headlines";
+
+
+// Field component defined OUTSIDE to prevent re-mount on every keystroke
+const Field = ({ label, k, state, setState, multiline = false }: any) => (
+  <div>
+    <label className="field-label">{label}</label>
+    {multiline
+      ? <textarea className="textarea" rows={4} value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} style={{ marginTop: 4 }} />
+      : <input className="input" value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} style={{ marginTop: 4 }} />}
+  </div>
+);
 
 export default function LinkedInPage() {
   const [tab, setTab] = useState<Tab>("optimize");
@@ -30,15 +43,6 @@ export default function LinkedInPage() {
   };
 
   const copy = (text: string, i: number) => { navigator.clipboard.writeText(text); setCopied(i); setTimeout(() => setCopied(null), 2000); };
-
-  const Field = ({ label, k, state, setState, multiline = false }: any) => (
-    <div>
-      <label className="field-label">{label}</label>
-      {multiline
-        ? <textarea className="textarea" rows={4} value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} style={{ marginTop: 4 }} />
-        : <input className="input" value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} style={{ marginTop: 4 }} />}
-    </div>
-  );
 
   return (
     <div className="app-shell">
@@ -178,3 +182,4 @@ export default function LinkedInPage() {
     </div>
   );
 }
+

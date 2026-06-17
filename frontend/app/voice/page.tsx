@@ -147,17 +147,18 @@ export default function VoicePage() {
     ];
     setHistory(updatedHistory);
 
-    // Evaluate answer in background (non-blocking)
+    // Evaluate answer with timeout so it never blocks the flow
     let evalScore = 70;
     let evalFeedback = "Good answer.";
     try {
-      const evalRes = await fetch(`${API_BASE}/analyse/evaluate`, {
+      const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000));
+      const evalPromise = fetch(`${API_BASE}/analyse/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, question: answeredQuestion, answer }),
-      });
-      if (evalRes.ok) {
-        const evalData = await evalRes.json();
+      }).then(r => r.ok ? r.json() : null);
+      const evalData = await Promise.race([evalPromise, timeoutPromise]).catch(() => null);
+      if (evalData) {
         evalScore = evalData.score || 70;
         evalFeedback = evalData.feedback || "Good answer.";
       }

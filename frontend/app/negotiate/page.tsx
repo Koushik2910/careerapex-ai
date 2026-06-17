@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DollarSign, Loader2, Send, RotateCcw, Bot, User, FileText, Copy, Check } from "lucide-react";
@@ -8,6 +10,15 @@ import { getNegotiationScript, startNegotiationRoleplay, negotiationRoleplayChat
 
 type Tab = "script" | "roleplay";
 interface Message { role: "user" | "assistant"; content: string; }
+
+
+// Field component defined OUTSIDE to prevent re-mount on every keystroke
+const Field = ({ label, k, state, setState, placeholder = "" }: any) => (
+  <div>
+    <label className="field-label">{label}</label>
+    <input className="input" value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} placeholder={placeholder} style={{ marginTop: 4 }} />
+  </div>
+);
 
 export default function NegotiatePage() {
   const [tab, setTab] = useState<Tab>("script");
@@ -43,13 +54,6 @@ export default function NegotiatePage() {
       setMessages([...newMsgs, { role: "assistant", content: r.response }]);
     } catch { alert("Failed."); } finally { setRoleplayLoading(false); }
   };
-
-  const Field = ({ label, k, state, setState, placeholder = "" }: any) => (
-    <div>
-      <label className="field-label">{label}</label>
-      <input className="input" value={state[k]} onChange={e => setState({ ...state, [k]: e.target.value })} placeholder={placeholder} style={{ marginTop: 4 }} />
-    </div>
-  );
 
   return (
     <div className="app-shell">
@@ -187,3 +191,4 @@ export default function NegotiatePage() {
     </div>
   );
 }
+
