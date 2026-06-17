@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,8 +24,8 @@ export default function MemoryPage() {
     if (showRefresh) setRefreshing(true); else setLoading(true);
     try {
       const [sessRes, progRes] = await Promise.all([
-        fetch("http://localhost:8001/memory/sessions").then(r => r.json()),
-        fetch("http://localhost:8001/memory/progress").then(r => r.json()),
+        fetch(`${API_BASE}/memory/sessions`).then(r => r.json()),
+        fetch(`${API_BASE}/memory/progress`).then(r => r.json()),
       ]);
       const sorted = (sessRes?.sessions || []).sort((a: any, b: any) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -46,7 +48,7 @@ export default function MemoryPage() {
   const handleDelete = async (sessionId: string) => {
     setDeleting(sessionId);
     try {
-      await fetch(`http://localhost:8001/memory/session/${sessionId}`, { method: "DELETE" });
+      await fetch(`${API_BASE}/memory/session/${sessionId}`, { method: "DELETE" });
       const updated = sessions.filter(s => s.session_id !== sessionId);
       setSessions(updated);
       if (selected?.session_id === sessionId) setSelected(updated[0] || null);
@@ -274,3 +276,4 @@ export default function MemoryPage() {
     </div>
   );
 }
+

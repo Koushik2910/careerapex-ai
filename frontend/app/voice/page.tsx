@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, Square, MessageSquare, User, ChevronRight, AlertCircle } from "lucide-react";
@@ -149,7 +151,7 @@ export default function VoicePage() {
     let evalScore = 70;
     let evalFeedback = "Good answer.";
     try {
-      const evalRes = await fetch("http://localhost:8001/analyse/evaluate", {
+      const evalRes = await fetch(`${API_BASE}/analyse/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, question: answeredQuestion, answer }),
@@ -202,7 +204,7 @@ export default function VoicePage() {
     else if (remaining === 2) warningPrefix = "We have 2 questions remaining. ";
 
     try {
-      const res = await fetch("http://localhost:8001/interview/chat", {
+      const res = await fetch(`${API_BASE}/interview/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -568,3 +570,4 @@ export default function VoicePage() {
     </div>
   );
 }
+

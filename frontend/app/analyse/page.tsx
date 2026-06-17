@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -149,7 +151,7 @@ export default function AnalysePage() {
 
   // Load previous sessions for dropdown
   useEffect(() => {
-    fetch("http://localhost:8001/memory/sessions")
+    fetch(`${API_BASE}/memory/sessions`)
       .then(r => r.json())
       .then(d => {
         const seen = new Set<string>();
@@ -185,7 +187,7 @@ export default function AnalysePage() {
 
     // Copy resume embeddings from old session to new session via backend
     try {
-      await fetch("http://localhost:8001/upload/copy-resume", {
+      await fetch(`${API_BASE}/upload/copy-resume`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -262,7 +264,7 @@ export default function AnalysePage() {
 
   const saveToMemory = async (sid: string, resumeFname: string, jdFname: string, res: any) => {
     try {
-      const saveRes = await fetch("http://localhost:8001/memory/save", {
+      const saveRes = await fetch(`${API_BASE}/memory/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -297,7 +299,7 @@ export default function AnalysePage() {
       await saveToMemory(currentSid, currentResume, currentJd, res);
       setAnalysis(res);
       // Refresh previous sessions list
-      fetch("http://localhost:8001/memory/sessions")
+      fetch(`${API_BASE}/memory/sessions`)
         .then(r => r.json())
         .then(d => {
           const seen = new Set<string>();
@@ -539,3 +541,4 @@ export default function AnalysePage() {
     </div>
   );
 }
+

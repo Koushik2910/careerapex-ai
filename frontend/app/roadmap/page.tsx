@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Map, Loader2, CheckCircle, Circle, ChevronDown, ChevronUp, Sparkles, Calendar } from "lucide-react";
@@ -22,7 +24,7 @@ export default function RoadmapPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:8001/memory/sessions")
+    fetch(`${API_BASE}/memory/sessions`)
       .then(r => r.json())
       .then(d => {
         const s = d?.sessions || [];
@@ -66,7 +68,7 @@ export default function RoadmapPage() {
     try {
       const weeks = timeframe === "1 month" ? "4" : timeframe === "3 months" ? "12" : "8";
       const msg = `Generate a detailed ${timeframe} learning roadmap to become a ${targetRole}.\n\nFor each week use this exact format:\nWEEK 1: [Week Title]\nTasks:\n- task 1\n- task 2\nResources:\n- resource 1\n\nGenerate exactly ${weeks} weeks. Do not use tools. Write the roadmap directly now.`;
-      const res = await fetch("http://localhost:8001/agent/chat", {
+      const res = await fetch(`${API_BASE}/agent/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: selectedSession.session_id, message: msg, history: [] }),
@@ -234,3 +236,4 @@ export default function RoadmapPage() {
     </div>
   );
 }
+

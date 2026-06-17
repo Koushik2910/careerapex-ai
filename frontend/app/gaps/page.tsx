@@ -1,5 +1,7 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,7 +26,7 @@ export default function GapsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:8001/memory/sessions")
+    fetch(`${API_BASE}/memory/sessions`)
       .then(r => r.json())
       .then(d => setSessions(d?.sessions || []))
       .catch(() => setSessions([]))
@@ -46,7 +48,7 @@ export default function GapsPage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8001/analyse/gaps/${session.session_id}`,
+        `${API_BASE}/analyse/gaps/${session.session_id}`,
         { method: "POST" }
       );
       if (!res.ok) throw new Error("Analysis failed");
@@ -313,3 +315,4 @@ export default function GapsPage() {
     </div>
   );
 }
+
