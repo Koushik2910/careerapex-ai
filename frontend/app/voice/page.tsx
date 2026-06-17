@@ -1,7 +1,5 @@
 "use client";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, Square, MessageSquare, User, ChevronRight, AlertCircle } from "lucide-react";
@@ -147,18 +145,17 @@ export default function VoicePage() {
     ];
     setHistory(updatedHistory);
 
-    // Evaluate answer with timeout so it never blocks the flow
+    // Evaluate answer in background (non-blocking)
     let evalScore = 70;
     let evalFeedback = "Good answer.";
     try {
-      const timeoutPromise = new Promise<null>((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000));
-      const evalPromise = fetch(`${API_BASE}/analyse/evaluate`, {
+      const evalRes = await fetch("http://localhost:8001/analyse/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, question: answeredQuestion, answer }),
-      }).then(r => r.ok ? r.json() : null);
-      const evalData = await Promise.race([evalPromise, timeoutPromise]).catch(() => null);
-      if (evalData) {
+      });
+      if (evalRes.ok) {
+        const evalData = await evalRes.json();
         evalScore = evalData.score || 70;
         evalFeedback = evalData.feedback || "Good answer.";
       }
@@ -205,7 +202,7 @@ export default function VoicePage() {
     else if (remaining === 2) warningPrefix = "We have 2 questions remaining. ";
 
     try {
-      const res = await fetch(`${API_BASE}/interview/chat`, {
+      const res = await fetch("http://localhost:8001/interview/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -237,19 +234,12 @@ export default function VoicePage() {
       setStatus("ai-speaking");
       speak(aiText, startListening, stoppedRef);
     } catch (e) {
-      // Show error but keep session alive so user can see what happened
-      setError("Connection error — please wait a moment and try ending and restarting the session.");
+      setError("Failed to get next question. Please check your connection.");
       setStatus("ended");
     }
   }, [sessionId, mode, startListening]);
 
   // ── Start interview ───────────────────────────────────────────────────────────
-  // Ping backend on mount to wake Railway from sleep
-  useEffect(() => {
-    const API_BASE_LOCAL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
-    fetch(`${API_BASE_LOCAL}/health`).catch(() => {});
-  }, []);
-
   const startInterview = async () => {
     if (!sessionId.trim()) {
       setError("Please enter a session ID to load your resume and JD context.");
@@ -408,7 +398,7 @@ export default function VoicePage() {
           )}
 
           {/* ── ACTIVE INTERVIEW ── */}
-          {(status === "ai-speaking" || status === "listening" || status === "processing" || status === "ended") && (
+          {(status === "ai-speaking" || status === "listening" || status === "processing") && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -578,6 +568,3 @@ export default function VoicePage() {
     </div>
   );
 }
-
-
-
