@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, TrendingUp, TrendingDown, Minus, Loader2, FileText, RotateCcw, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
@@ -26,9 +28,22 @@ function Ring({ score, size = 84, color }: { score: number; size?: number; color
 }
 
 export default function DebriefPage() {
-  const [sessionId, setSessionId] = useState("test-session-001");
+  const [sessionId, setSessionId] = useState("");
+  const [sessions, setSessions] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  // Auto-load sessions from memory on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/memory/sessions`)
+      .then(r => r.json())
+      .then(d => {
+        const s = d?.sessions || [];
+        setSessions(s);
+        if (s.length > 0) setSessionId(s[0].session_id);
+      })
+      .catch(() => {});
+  }, []);
   const [coverLetter, setCoverLetter] = useState("");
   const [coverLoading, setCoverLoading] = useState(false);
   const [showCover, setShowCover] = useState(false);
@@ -227,3 +242,4 @@ export default function DebriefPage() {
     </div>
   );
 }
+

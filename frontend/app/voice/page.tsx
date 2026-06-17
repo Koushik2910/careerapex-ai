@@ -237,12 +237,19 @@ export default function VoicePage() {
       setStatus("ai-speaking");
       speak(aiText, startListening, stoppedRef);
     } catch (e) {
-      setError("Failed to get next question. Please check your connection.");
-      setStatus("ended");
+      // Show error but keep session alive so user can see what happened
+      setError("Connection error — please wait a moment and try ending and restarting the session.");
+      setStatus("listening");  // keep UI visible instead of blank
     }
   }, [sessionId, mode, startListening]);
 
   // ── Start interview ───────────────────────────────────────────────────────────
+  // Ping backend on mount to wake Railway from sleep
+  useEffect(() => {
+    const API_BASE_LOCAL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+    fetch(`${API_BASE_LOCAL}/health`).catch(() => {});
+  }, []);
+
   const startInterview = async () => {
     if (!sessionId.trim()) {
       setError("Please enter a session ID to load your resume and JD context.");
@@ -571,4 +578,5 @@ export default function VoicePage() {
     </div>
   );
 }
+
 
