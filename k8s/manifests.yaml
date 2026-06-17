@@ -1,0 +1,200 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# CareerApex AI — Kubernetes Manifests (Minikube / Local)
+# Apply with: kubectl apply -f k8s/
+# ══════════════════════════════════════════════════════════════════════════════
+
+---
+# ── Namespace ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: careerapex
+
+---
+# ── ConfigMap (non-secret env vars) ──────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: careerapex-config
+  namespace: careerapex
+data:
+  LANGCHAIN_TRACING_V2: "true"
+  LANGCHAIN_PROJECT: "careerapex-ai"
+  NEXT_PUBLIC_API_URL: "http://careerapex-backend-svc:8001"
+
+---
+# ── Secret (API keys) ─────────────────────────────────────────────────────────
+# Run this to create the secret (don't commit actual values):
+# kubectl create secret generic careerapex-secrets \
+#   --from-literal=OPENROUTER_API_KEY=sk-or-v1-xxx \
+#   --from-literal=LANGCHAIN_API_KEY=lsv2_xxx \
+#   -n careerapex
+apiVersion: v1
+kind: Secret
+metadata:
+  name: careerapex-secrets
+  namespace: careerapex
+type: Opaque
+# data values are base64 encoded — replace with your actual keys
+# echo -n "your-key" | base64
+data:
+  OPENROUTER_API_KEY: REPLACE_WITH_BASE64
+  LANGCHAIN_API_KEY: REPLACE_WITH_BASE64
+
+---
+# ── PersistentVolumeClaim (ChromaDB storage) ──────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chroma-pvc
+  namespace: careerapex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# ── Backend Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: careerapex-backend
+  namespace: careerapex
+  labels:
+    app: careerapex-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: careerapex-backend
+  template:
+    metadata:
+      labels:
+        app: careerapex-backend
+    spec:
+      containers:
+        - name: backend
+          image: careerapex-backend:latest
+          imagePullPolicy: Never          # Use local Minikube image
+          ports:
+            - containerPort: 8001
+          env:
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: careerapex-secrets
+                  key: OPENROUTER_API_KEY
+            - name: LANGCHAIN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: careerapex-secrets
+                  key: LANGCHAIN_API_KEY
+            - name: LANGCHAIN_TRACING_V2
+              valueFrom:
+                configMapKeyRef:
+                  name: careerapex-config
+                  key: LANGCHAIN_TRACING_V2
+            - name: LANGCHAIN_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: careerapex-config
+                  key: LANGCHAIN_PROJECT
+          volumeMounts:
+            - name: chroma-storage
+              mountPath: /app/chroma_store
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: chroma-storage
+          persistentVolumeClaim:
+            claimName: chroma-pvc
+
+---
+# ── Backend Service ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: careerapex-backend-svc
+  namespace: careerapex
+spec:
+  selector:
+    app: careerapex-backend
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+  type: ClusterIP
+
+---
+# ── Frontend Deployment ───────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: careerapex-frontend
+  namespace: careerapex
+  labels:
+    app: careerapex-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: careerapex-frontend
+  template:
+    metadata:
+      labels:
+        app: careerapex-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: careerapex-frontend:latest
+          imagePullPolicy: Never          # Use local Minikube image
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: careerapex-config
+                  key: NEXT_PUBLIC_API_URL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+
+---
+# ── Frontend Service ──────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: careerapex-frontend-svc
+  namespace: careerapex
+spec:
+  selector:
+    app: careerapex-frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: NodePort       # NodePort so Minikube can expose it via minikube service
