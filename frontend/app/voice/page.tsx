@@ -239,7 +239,7 @@ export default function VoicePage() {
     } catch (e) {
       // Show error but keep session alive so user can see what happened
       setError("Connection error — please wait a moment and try ending and restarting the session.");
-      setStatus("listening");  // keep UI visible instead of blank
+      setStatus("ended");
     }
   }, [sessionId, mode, startListening]);
 
@@ -408,7 +408,7 @@ export default function VoicePage() {
           )}
 
           {/* ── ACTIVE INTERVIEW ── */}
-          {(status === "ai-speaking" || status === "listening" || status === "processing") && (
+          {(status === "ai-speaking" || status === "listening" || status === "processing" || status === "ended") && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -578,5 +578,6 @@ export default function VoicePage() {
     </div>
   );
 }
+
 
 
