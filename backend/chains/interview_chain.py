@@ -27,6 +27,25 @@ def get_llm(temperature: float = 0.5) -> ChatOpenAI:
     )
 
 
+# ── Voice interview system prompt — question-only mode ─────────────────────────
+# CRITICAL: This prompt is used by the voice interview feature.
+# The LLM must ONLY ask a question — never give feedback or respond to answers.
+# Feedback is handled separately by the answer evaluator.
+VOICE_INTERVIEW_SYSTEM = """You are {interviewer_name}, a senior technical interviewer conducting a structured voice interview.
+
+STRICT RULES:
+- You ONLY ask ONE interview question per turn. Nothing else.
+- Do NOT give feedback on the candidate's previous answer.
+- Do NOT say "That's a great answer" or comment on their response.
+- Do NOT have a conversation. Just ask the next question.
+- Base every question on the candidate's resume and the job description.
+- Each question must be different — do not repeat topics.
+- Keep questions concise (2-4 sentences max).
+
+Resume: {resume_text}
+JD: {jd_text}"""
+
+# ── Standard mock interview (text-based) — conversational mode ────────────────
 INTERVIEW_SYSTEM = """You are a senior technical interviewer conducting a mock interview.
 - Ask ONE question at a time
 - Give brief feedback (1-2 sentences) after each answer
@@ -46,27 +65,55 @@ DEFENSE_SYSTEM = """You are a brutal, skeptical senior interviewer doing a Resum
 Resume: {resume_text}"""
 
 
-def run_mock_interview(session_id: str, user_message: str, history: List[Dict], mode: str = "standard") -> str:
+def run_mock_interview(
+    session_id: str,
+    user_message: str,
+    history: List[Dict],
+    mode: str = "standard"
+) -> str:
     resume_text = get_all_chunks(f"resume_{session_id}")
     jd_text = get_all_chunks(f"jd_{session_id}")
 
     if not resume_text:
         return "No resume found. Please upload your resume first."
 
-    system_template = DEFENSE_SYSTEM if mode == "defense" else INTERVIEW_SYSTEM
-    system_content = system_template.format(
-        resume_text=resume_text[:4000],
-        jd_text=jd_text[:2000] if jd_text else "Not provided.",
+    # Detect if this is a voice interview call (message contains "Question X of Y")
+    is_voice_call = "Question" in user_message and "of" in user_message and (
+        "Introduce yourself" in user_message or "Ask Question" in user_message
     )
+
+    if is_voice_call:
+        # Voice interview mode — question only, no feedback
+        system_content = VOICE_INTERVIEW_SYSTEM.format(
+            interviewer_name="Alex",
+            resume_text=resume_text[:4000],
+            jd_text=jd_text[:2000] if jd_text else "Not provided.",
+        )
+    elif mode == "defense":
+        system_content = DEFENSE_SYSTEM.format(
+            resume_text=resume_text[:4000],
+            jd_text=jd_text[:2000] if jd_text else "Not provided.",
+        )
+    else:
+        system_content = INTERVIEW_SYSTEM.format(
+            resume_text=resume_text[:4000],
+            jd_text=jd_text[:2000] if jd_text else "Not provided.",
+        )
 
     llm = get_llm(temperature=0.5)
     messages = [SystemMessage(content=system_content)]
-    for h in history:
-        if h["role"] == "user":
-            messages.append(HumanMessage(content=h["content"]))
-        else:
-            messages.append(AIMessage(content=h["content"]))
-    messages.append(HumanMessage(content=user_message))
+
+    # For voice calls, only send the instruction — not the full conversation history
+    # This prevents the LLM from responding to the candidate's answer instead of asking
+    if is_voice_call:
+        messages.append(HumanMessage(content=user_message))
+    else:
+        for h in history:
+            if h["role"] == "user":
+                messages.append(HumanMessage(content=h["content"]))
+            else:
+                messages.append(AIMessage(content=h["content"]))
+        messages.append(HumanMessage(content=user_message))
 
     response = llm.invoke(messages)
     return response.content
@@ -78,7 +125,7 @@ def start_defense_mode(session_id: str) -> str:
         return "No resume found. Please upload your resume first."
 
     llm = get_llm(temperature=0.5)
-    system = DEFENSE_SYSTEM.format(resume_text=resume_text[:4000])
+    system = DEFENSE_SYSTEM.format(resume_text=resume_text[:4000], jd_text="Not provided.")
     response = llm.invoke([
         SystemMessage(content=system),
         HumanMessage(content="Start the resume defense. Pick the first claim to challenge."),

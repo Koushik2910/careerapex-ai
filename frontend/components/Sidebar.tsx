@@ -6,20 +6,20 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, FileSearch, GitBranch, MessageSquare,
   Mic, Trophy, Brain, DollarSign, Link as LinkIcon, Map, ChevronRight,
-  Zap,
+  Zap, Radio,
 } from "lucide-react";
 
 const nav = [
-  { href: "/dashboard",  label: "Dashboard",       icon: LayoutDashboard, group: "main" },
-  { href: "/analyse",    label: "Analyse",          icon: FileSearch,      group: "main" },
-  { href: "/gaps",       label: "Skill Gaps",       icon: GitBranch,       group: "main" },
-  { href: "/interview",  label: "Interview",        icon: MessageSquare,   group: "practice" },
-  { href: "/voice",      label: "Voice Interview",  icon: Mic,             group: "practice" },
-  { href: "/debrief",    label: "Debrief",          icon: Trophy,          group: "practice" },
-  { href: "/memory",     label: "Memory",           icon: Brain,           group: "tools" },
-  { href: "/negotiate",  label: "Negotiate",        icon: DollarSign,      group: "tools" },
-  { href: "/linkedin",   label: "LinkedIn",         icon: LinkIcon,        group: "tools" },
-  { href: "/roadmap",    label: "Roadmap",          icon: Map,             group: "tools" },
+  { href: "/dashboard",     label: "Dashboard",        icon: LayoutDashboard, group: "main" },
+  { href: "/analyse",       label: "Analyse",          icon: FileSearch,      group: "main" },
+  { href: "/gaps",          label: "Skill Gaps",       icon: GitBranch,       group: "main" },
+  { href: "/interview",     label: "Interview",        icon: MessageSquare,   group: "practice" },
+  { href: "/voice-studio",  label: "AI Voice Studio",  icon: Radio,           group: "practice", badge: "NEW" },
+  { href: "/debrief",       label: "Debrief",          icon: Trophy,          group: "practice" },
+  { href: "/memory",        label: "Memory",           icon: Brain,           group: "tools" },
+  { href: "/negotiate",     label: "Negotiate",        icon: DollarSign,      group: "tools" },
+  { href: "/linkedin",      label: "LinkedIn",         icon: LinkIcon,        group: "tools" },
+  { href: "/roadmap",       label: "Roadmap",          icon: Map,             group: "tools" },
 ];
 
 const groups: Record<string, string> = {
@@ -67,7 +67,7 @@ export default function Sidebar() {
       <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
         {nav.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href;
+          const active = pathname === item.href || (item.href === "/voice-studio" && pathname === "/voice");
           const showGroupLabel = !renderedGroups.has(item.group);
           if (showGroupLabel) renderedGroups.add(item.group);
 
@@ -112,7 +112,17 @@ export default function Sidebar() {
                   <span style={{ fontSize: 13.5, fontWeight: active ? 600 : 450, flex: 1, letterSpacing: "-0.005em" }}>
                     {item.label}
                   </span>
-                  {active && <ChevronRight size={12} strokeWidth={2} />}
+                  {(item as any).badge && (
+                    <span style={{
+                      fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em",
+                      background: "rgba(16,185,129,0.15)", color: "#10B981",
+                      border: "1px solid rgba(16,185,129,0.25)",
+                      padding: "2px 6px", borderRadius: 99,
+                    }}>
+                      {(item as any).badge}
+                    </span>
+                  )}
+                  {active && !(item as any).badge && <ChevronRight size={12} strokeWidth={2} />}
                 </motion.div>
               </Link>
             </div>

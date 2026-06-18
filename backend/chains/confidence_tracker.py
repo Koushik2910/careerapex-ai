@@ -5,8 +5,6 @@ from datetime import datetime
 from rag.chroma_client import get_or_create_collection
 
 
-# ── Save a single answer score ─────────────────────────────────────────────────
-
 def save_answer_score(
     session_id: str,
     question: str,
@@ -17,9 +15,6 @@ def save_answer_score(
     feedback: str,
     question_index: int,
 ) -> dict:
-    """
-    Save one answer's score to ChromaDB for this session.
-    """
     collection = get_or_create_collection(f"confidence_{session_id}")
 
     timestamp = datetime.utcnow().isoformat()
@@ -36,7 +31,7 @@ def save_answer_score(
         "session_id": session_id,
         "question_index": question_index,
         "question": question[:500],
-        "answer": answer[:500],
+        "answer": answer[:500],          # stored here
         "category": category,
         "score": score,
         "confidence_score": confidence_score,
@@ -64,12 +59,7 @@ def save_answer_score(
     }
 
 
-# ── Get all scores for a session ───────────────────────────────────────────────
-
 def get_session_scores(session_id: str) -> List[Dict]:
-    """
-    Get all answer scores for a session, sorted by question index.
-    """
     collection = get_or_create_collection(f"confidence_{session_id}")
 
     try:
@@ -82,6 +72,7 @@ def get_session_scores(session_id: str) -> List[Dict]:
             scores.append({
                 "question_index": meta.get("question_index", 0),
                 "question": meta.get("question", ""),
+                "answer": meta.get("answer", ""),       # ← THIS WAS MISSING
                 "category": meta.get("category", ""),
                 "score": meta.get("score", 0),
                 "confidence_score": meta.get("confidence_score", 0),
@@ -96,13 +87,7 @@ def get_session_scores(session_id: str) -> List[Dict]:
         return []
 
 
-# ── Compute tracker summary ────────────────────────────────────────────────────
-
 def get_confidence_summary(session_id: str) -> dict:
-    """
-    Compute full confidence tracker summary for a session.
-    Returns avg scores, trend, weak categories, strong categories.
-    """
     scores = get_session_scores(session_id)
 
     if not scores:
@@ -122,7 +107,6 @@ def get_confidence_summary(session_id: str) -> dict:
     avg_score = round(sum(s["score"] for s in scores) / total, 1)
     avg_confidence = round(sum(s["confidence_score"] for s in scores) / total, 1)
 
-    # Trend: compare first half vs second half
     if total >= 4:
         mid = total // 2
         first_half_avg = sum(s["score"] for s in scores[:mid]) / mid
@@ -137,7 +121,6 @@ def get_confidence_summary(session_id: str) -> dict:
     else:
         trend = "not enough data"
 
-    # Category breakdown
     category_scores: Dict[str, List[int]] = {}
     for s in scores:
         cat = s["category"]
@@ -153,7 +136,6 @@ def get_confidence_summary(session_id: str) -> dict:
     weak_categories = [cat for cat, avg in category_avgs.items() if avg < 65]
     strong_categories = [cat for cat, avg in category_avgs.items() if avg >= 75]
 
-    # Identify weakest and strongest individual questions
     sorted_by_score = sorted(scores, key=lambda x: x["score"])
     weakest = sorted_by_score[:2] if len(sorted_by_score) >= 2 else sorted_by_score
     strongest = sorted_by_score[-2:] if len(sorted_by_score) >= 2 else sorted_by_score

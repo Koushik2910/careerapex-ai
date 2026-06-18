@@ -28,36 +28,75 @@ def get_llm(temperature: float = 0.1) -> ChatOpenAI:
     )
 
 
-SYSTEM_PROMPT = """You are a strict but fair senior technical interviewer evaluating a candidate's answer.
+SYSTEM_PROMPT = """You are a strict, honest technical interviewer evaluating a candidate's spoken answer.
 
-Score honestly. Average answer: 50-65. Strong: 75-85. Exceptional: 90+.
+SCORING RULES — follow these exactly, no exceptions:
+- Irrelevant answer (candidate refused, changed topic, said "I cannot tell"): score 0-10
+- Very short or vague answer (under 10 words, no technical content): score 5-20
+- Partial answer (some relevant content but missing key points): score 30-55
+- Average answer (addresses the question but lacks depth): score 50-65
+- Good answer (addresses question with some technical depth): score 65-80
+- Strong answer (thorough, specific, technical details, examples): score 80-90
+- Exceptional (comprehensive, structured, impressive depth): score 90-100
+
+CRITICAL: Do NOT give 65 as a default. Analyse the actual content of the answer.
+If the answer is off-topic or a refusal, give 0-15. Be honest — this helps the candidate improve.
 
 Return ONLY valid JSON — no markdown:
 {{
   "score": <integer 0-100>,
   "confidence_score": <integer 0-100>,
-  "feedback": "<2-3 sentence feedback>",
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "improvements": ["<improvement 1>", "<improvement 2>"],
-  "model_answer_hint": "<ideal answer in 2-3 sentences>"
+  "feedback": "<2-3 sentence honest feedback about this specific answer>",
+  "strengths": ["<specific strength from this answer>" or "<empty list if none>"],
+  "improvements": ["<specific thing to improve based on this answer>"],
+  "model_answer_hint": "<what a strong answer to this question would include>"
 }}"""
 
-USER_PROMPT = """QUESTION: {question}
-CATEGORY: {category}
-CANDIDATE'S ANSWER: {answer}
+USER_PROMPT = """INTERVIEW QUESTION: {question}
 
-Evaluate this answer and return the JSON assessment."""
+CANDIDATE'S SPOKEN ANSWER: {answer}
+
+ANSWER LENGTH: {word_count} words
+
+Evaluate this specific answer honestly. If the answer is short, vague, off-topic, or a refusal, score it low (0-20). Do not give a generous default score."""
 
 
 def evaluate_answer(question: str, answer: str, category: str = "technical") -> dict:
-    if not answer or len(answer.strip()) < 10:
+    answer = answer.strip()
+    word_count = len(answer.split())
+
+    # Immediate low score for clearly bad answers
+    if not answer or word_count < 3:
         return {
             "score": 0,
             "confidence_score": 0,
-            "feedback": "No answer provided or answer is too short to evaluate.",
+            "feedback": "No answer was provided.",
             "strengths": [],
             "improvements": ["Please provide a detailed answer of at least 2-3 sentences."],
-            "model_answer_hint": "A complete answer is required for evaluation.",
+            "model_answer_hint": "A complete, specific answer is required.",
+        }
+
+    # Detect obvious refusals / off-topic answers
+    refusal_phrases = [
+        "i cannot", "i can't", "i don't know", "no i cannot", "sorry i can't",
+        "i would like to tell", "i used this audio", "test paper data",
+        "sorry no", "i'm not sure", "i don't have",
+    ]
+    answer_lower = answer.lower()
+    is_likely_refusal = any(phrase in answer_lower for phrase in refusal_phrases) and word_count < 15
+
+    if is_likely_refusal:
+        return {
+            "score": 5,
+            "confidence_score": 5,
+            "feedback": f"The answer did not address the question. The candidate said: '{answer}'. This does not demonstrate knowledge of the topic.",
+            "strengths": [],
+            "improvements": [
+                "Answer the question being asked — do not refuse or redirect.",
+                "If unsure, attempt to explain what you know about the topic.",
+                "Prepare answers for projects and skills listed on your resume.",
+            ],
+            "model_answer_hint": "A strong answer would directly address the technical question with specific examples from experience.",
         }
 
     llm = get_llm(temperature=0.1)
@@ -71,5 +110,6 @@ def evaluate_answer(question: str, answer: str, category: str = "technical") -> 
     return chain.invoke({
         "question": question,
         "answer": answer,
+        "word_count": word_count,
         "category": category,
     })
