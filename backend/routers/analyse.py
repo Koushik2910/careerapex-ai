@@ -9,22 +9,17 @@ from chains.answer_eval import evaluate_answer
 router = APIRouter(prefix="/analyse", tags=["analyse"])
 
 
-# ── Request models ─────────────────────────────────────────────────────────────
-
 class AnswerEvalRequest(BaseModel):
     question: str
     answer: str
     category: Optional[str] = "technical"
+    session_id: Optional[str] = None   # voice page sends this — accept and ignore
 
+    model_config = {"extra": "ignore"}
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/gaps/{session_id}")
 def analyse_gaps(session_id: str):
-    """
-    Run skill gap analysis for a session.
-    Resume and JD must be uploaded first.
-    """
     try:
         result = run_gap_analysis(session_id)
         return {"session_id": session_id, **result}
@@ -37,12 +32,8 @@ def analyse_gaps(session_id: str):
 @router.post("/questions/{session_id}")
 def get_questions(
     session_id: str,
-    count: int = Query(default=10, ge=5, le=20, description="Number of questions to generate"),
+    count: int = Query(default=10, ge=5, le=20),
 ):
-    """
-    Generate interview questions for a session.
-    Resume and JD must be uploaded first.
-    """
     try:
         result = generate_questions(session_id, count=count)
         return {"session_id": session_id, **result}
@@ -54,10 +45,6 @@ def get_questions(
 
 @router.post("/evaluate")
 def eval_answer(request: AnswerEvalRequest):
-    """
-    Evaluate a candidate's answer to an interview question.
-    Returns score, confidence score, feedback, strengths, improvements.
-    """
     try:
         result = evaluate_answer(
             question=request.question,

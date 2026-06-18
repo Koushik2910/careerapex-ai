@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, Square, MessageSquare, User, ChevronRight, AlertCircle } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 // ── Interviewer identity — consistent across all sessions ──────────────────────
 const INTERVIEWER_NAME = "Alex";
 const INTERVIEWER_VOICE_LANG = "en-US";
@@ -72,6 +74,11 @@ export default function VoicePage() {
 
   useEffect(() => { questionCountRef.current = questionCount; }, [questionCount]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // ── Wake Railway on mount (prevents sleep-caused blank screen on first question) ──
+  useEffect(() => {
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }, []);
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────────
   useEffect(() => () => {
@@ -149,7 +156,7 @@ export default function VoicePage() {
     let evalScore = 70;
     let evalFeedback = "Good answer.";
     try {
-      const evalRes = await fetch("http://localhost:8001/analyse/evaluate", {
+      const evalRes = await fetch(`${API_BASE}/analyse/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, question: answeredQuestion, answer }),
@@ -202,7 +209,7 @@ export default function VoicePage() {
     else if (remaining === 2) warningPrefix = "We have 2 questions remaining. ";
 
     try {
-      const res = await fetch("http://localhost:8001/interview/chat", {
+      const res = await fetch(`${API_BASE}/interview/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -398,7 +405,7 @@ export default function VoicePage() {
           )}
 
           {/* ── ACTIVE INTERVIEW ── */}
-          {(status === "ai-speaking" || status === "listening" || status === "processing") && (
+          {(status === "ai-speaking" || status === "listening" || status === "processing" || status === "ended") && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -489,6 +496,20 @@ export default function VoicePage() {
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
+                </div>
+              )}
+
+              {/* Error message when ended unexpectedly */}
+              {status === "ended" && error && (
+                <div style={{ textAlign: "center", padding: "32px 24px", borderRadius: 14, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                  <AlertCircle size={32} color="#EF4444" style={{ marginBottom: 12 }} />
+                  <p style={{ fontSize: 15, color: "#EF4444", fontWeight: 600, marginBottom: 8 }}>{error}</p>
+                  <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+                    The backend may have gone to sleep. Open the{" "}
+                    <a href={`${API_BASE}/health`} target="_blank" rel="noreferrer" style={{ color: "#3B82F6" }}>health endpoint</a>
+                    {" "}in a new tab, wait for it to respond, then try again.
+                  </p>
+                  <button className="btn btn-ghost" onClick={resetSession}>← Back to Setup</button>
                 </div>
               )}
             </motion.div>
