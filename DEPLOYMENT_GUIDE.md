@@ -1,221 +1,381 @@
-# CareerApex AI — Deployment Guide
-# Covers: Docker → Docker Compose → Vercel + Render → Kubernetes (Minikube)
+# CAREERAPEX AI — DEPLOYMENT GUIDE
+**Version:** 2.0 | **Date:** June 18, 2026
 
-═══════════════════════════════════════════════════════════════
-PHASE 1 — FILE PLACEMENT (do this first)
-═══════════════════════════════════════════════════════════════
+---
 
-Where each file goes in your project:
+## CURRENT DEPLOYMENT STATUS
 
-careerapex/
-├── backend/
-│   ├── Dockerfile              ← Dockerfile (backend)
-│   ├── requirements.txt        ← requirements.txt
-│   ├── .dockerignore           ← .dockerignore
-│   ├── main.py
-│   └── ... (rest of backend)
-├── frontend/
-│   ├── Dockerfile              ← Dockerfile.frontend (rename to Dockerfile)
-│   └── ... (rest of frontend)
-├── docker-compose.yml          ← docker-compose.yml (project root)
-└── k8s/
-    └── manifests.yaml          ← k8s-manifests.yaml (rename to manifests.yaml)
+| Layer | Platform | URL | Status |
+|---|---|---|---|
+| Frontend | Vercel | https://careerapex-ai.vercel.app | ✅ Live |
+| Backend | Railway | https://careerapex-ai-production.up.railway.app | ✅ Live |
+| Local Frontend | localhost | http://localhost:3000 | Run manually |
+| Local Backend | localhost | http://localhost:8001 | Run manually |
 
+---
 
-═══════════════════════════════════════════════════════════════
-PHASE 2 — next.config.ts CHANGE (required for frontend Docker)
-═══════════════════════════════════════════════════════════════
+## LOCAL DEVELOPMENT
 
-Add output: "standalone" to next.config.ts:
+### Start Backend
 
-  const nextConfig: NextConfig = {
-    output: "standalone",   ← ADD THIS LINE
-  };
-
-
-═══════════════════════════════════════════════════════════════
-PHASE 3 — DOCKER (backend only, test first)
-═══════════════════════════════════════════════════════════════
-
-# Navigate to backend folder
+```powershell
 cd C:\Users\Azuro\careerapex\backend
+$env:PYTHONIOENCODING="utf-8"
+..\venv\Scripts\activate
+uvicorn main:app --reload --port 8001
+```
 
-# Build the Docker image
-docker build -t careerapex-backend:latest .
+### Start Frontend
 
-# Run it locally (test before deploying)
-docker run -p 8001:8001 `
-  -e OPENROUTER_API_KEY=sk-or-v1-xxx `
-  -e LANGCHAIN_API_KEY=lsv2_xxx `
-  -e LANGCHAIN_TRACING_V2=true `
-  -e LANGCHAIN_PROJECT=careerapex-ai `
-  -v careerapex_chroma:/app/chroma_store `
-  careerapex-backend:latest
+```powershell
+cd C:\Users\Azuro\careerapex\frontend
+npm run dev
+```
 
-# Test it
-curl http://localhost:8001/health
-# Expected: {"status":"ok"}
+### Environment Variables (Local)
 
-
-═══════════════════════════════════════════════════════════════
-PHASE 4 — DOCKER COMPOSE (full stack locally)
-═══════════════════════════════════════════════════════════════
-
-# Create .env file at project root (docker-compose reads this)
-# C:\Users\Azuro\careerapex\.env
+Backend reads from `backend/.env`:
+```
 OPENROUTER_API_KEY=sk-or-v1-xxx
 LANGCHAIN_API_KEY=lsv2_xxx
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=careerapex-ai
+```
 
-# From project root
+Frontend reads from `frontend/.env.local` (create if missing):
+```
+NEXT_PUBLIC_API_URL=http://localhost:8001
+```
+
+---
+
+## DOCKER (LOCAL FULL STACK)
+
+### Build and Run
+
+```powershell
 cd C:\Users\Azuro\careerapex
 
-# Start everything
-docker-compose up --build
+# Create root .env file (docker-compose reads this)
+@"
+OPENROUTER_API_KEY=sk-or-v1-xxx
+LANGCHAIN_API_KEY=lsv2_xxx
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=careerapex-ai
+"@ | Set-Content ".env" -Encoding UTF8
 
-# Visit http://localhost:3000 — full app running in containers
+# Start both containers
+docker compose up --build
+```
 
-# Stop
-docker-compose down
+Visit http://localhost:3000
 
-# Stop and wipe volumes (clears ChromaDB)
-docker-compose down -v
+### Stop
 
+```powershell
+docker compose down
+```
 
-═══════════════════════════════════════════════════════════════
-PHASE 5 — RENDER DEPLOYMENT (backend public URL)
-═══════════════════════════════════════════════════════════════
+### Stop and wipe ChromaDB
 
-1. Push your code to GitHub (github.com/Koushik2910/careerapex-ai)
-   Make sure backend/Dockerfile is committed.
+```powershell
+docker compose down -v
+```
 
-2. Go to render.com → New → Web Service
+### File Locations
 
-3. Connect GitHub repo → select careerapex-ai
+| File | Location |
+|---|---|
+| Backend Dockerfile | `backend/Dockerfile` |
+| Frontend Dockerfile | `frontend/Dockerfile` |
+| Docker Compose | `docker-compose.yml` (root) |
+| Backend requirements | `backend/requirements.txt` |
 
-4. Settings:
-   - Root Directory: backend
-   - Environment: Docker
-   - Dockerfile Path: ./Dockerfile
-   - Port: 8001
+### Backend Dockerfile (current working version)
 
-5. Add Environment Variables in Render dashboard:
-   OPENROUTER_API_KEY = sk-or-v1-xxx
-   LANGCHAIN_API_KEY  = lsv2_xxx
-   LANGCHAIN_TRACING_V2 = true
-   LANGCHAIN_PROJECT = careerapex-ai
+```dockerfile
+FROM python:3.11-slim
 
-6. Add Persistent Disk (for ChromaDB):
-   - Mount Path: /app/chroma_store
-   - Size: 1 GB ($0.25/month)
+WORKDIR /app
 
-7. Deploy → get URL like:
-   https://careerapex-backend.onrender.com
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc && rm -rf /var/lib/apt/lists/*
 
-8. Test:
-   curl https://careerapex-backend.onrender.com/health
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-9. Add free keepalive cron (prevents sleep):
-   - Go to cron-job.org (free)
-   - Add job: GET https://careerapex-backend.onrender.com/health
-   - Schedule: every 10 minutes
+COPY . .
+RUN mkdir -p /app/chroma_store
 
+EXPOSE 8001
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}
+```
 
-═══════════════════════════════════════════════════════════════
-PHASE 6 — VERCEL DEPLOYMENT (frontend public URL)
-═══════════════════════════════════════════════════════════════
+**IMPORTANT:** Do NOT pre-download HuggingFace model at build time — causes OOM on Railway.
 
-1. Go to vercel.com → New Project
+---
 
-2. Import github.com/Koushik2910/careerapex-ai
+## RAILWAY (BACKEND PRODUCTION)
 
-3. Settings:
-   - Framework: Next.js
-   - Root Directory: frontend
-   - Build Command: npm run build (auto-detected)
+### Dashboard
 
-4. Add Environment Variable:
-   NEXT_PUBLIC_API_URL = https://careerapex-backend.onrender.com
+https://railway.app → My Projects → alluring-intuition → careerapex-ai
 
-5. Deploy → get URL like:
-   https://careerapex-ai.vercel.app
+### Settings
 
-6. Visit the URL — frontend calls your Render backend automatically.
+| Setting | Value |
+|---|---|
+| Root Directory | `backend` |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"` |
+| Runtime | Python |
+| Region | US West |
 
-NOTE: Also update backend/main.py CORS to allow your Vercel URL:
-  allow_origins=[
-    "http://localhost:3000",
-    "https://careerapex-ai.vercel.app",   ← ADD THIS
-  ]
+### Environment Variables (Railway Dashboard → Variables)
 
+| Key | Value |
+|---|---|
+| `PYTHON_VERSION` | `3.11.9` |
+| `OPENROUTER_API_KEY` | `sk-or-v1-xxx` |
+| `LANGCHAIN_API_KEY` | `lsv2_xxx` |
+| `LANGCHAIN_TRACING_V2` | `true` |
+| `LANGCHAIN_PROJECT` | `careerapex-ai` |
+| `PORT` | `8001` |
 
-═══════════════════════════════════════════════════════════════
-PHASE 7 — KUBERNETES ON MINIKUBE (local, portfolio demo)
-═══════════════════════════════════════════════════════════════
+### Networking
 
-# Install Minikube (one time)
-# Download from: https://minikube.sigs.k8s.io/docs/start/
-# Windows: winget install Kubernetes.minikube
+Domain: `careerapex-ai-production.up.railway.app`
+Target port: `8001`
 
-# Start Minikube
+### Redeploy
+
+```powershell
+git push origin main
+```
+
+Railway auto-deploys on push. Or use Railway Dashboard → Manual Deploy.
+
+### Test After Deploy
+
+```
+https://careerapex-ai-production.up.railway.app/health
+Expected: {"status":"CareerApex AI is running","version":"1.0.0"}
+```
+
+### Free Tier Limitations
+
+- 512MB RAM — HuggingFace model uses ~300MB, leaves ~200MB for FastAPI
+- Sleeps after 15 min inactivity
+- First request after sleep: 30-60 seconds
+- No persistent disk — ChromaDB wiped on redeploy
+
+### Keep Alive (Prevent Sleep)
+
+Set up free cron at https://cron-job.org:
+- URL: `https://careerapex-ai-production.up.railway.app/health`
+- Schedule: Every 10 minutes
+
+---
+
+## VERCEL (FRONTEND PRODUCTION)
+
+### Dashboard
+
+https://vercel.com → koushik-gattu → careerapex-ai
+
+### Settings
+
+| Setting | Value |
+|---|---|
+| Root Directory | `frontend` |
+| Framework Preset | `Next.js` (MUST be Next.js, not Other) |
+| Build Command | `npm run build` (auto-detected) |
+| Output Directory | `.next` (auto-detected) |
+
+### Environment Variables (Vercel Dashboard → Settings → Environment Variables)
+
+| Key | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://careerapex-ai-production.up.railway.app` |
+
+### Auto-Deploy
+
+Vercel auto-deploys on every push to `main` branch. Takes ~45 seconds.
+
+### Manual Redeploy
+
+Vercel Dashboard → Deployments → `...` next to latest → Redeploy
+
+### Test After Deploy
+
+```
+https://careerapex-ai.vercel.app/dashboard
+Should show CareerApex dashboard UI
+```
+
+---
+
+## KUBERNETES (LOCAL MINIKUBE)
+
+### Install Minikube (one time)
+
+```powershell
+winget install Kubernetes.minikube
+```
+
+### Start Minikube
+
+```powershell
 minikube start --driver=docker --memory=4096 --cpus=2
+```
 
-# Point Docker to Minikube's registry (so it can see your local images)
+### Build Images Inside Minikube
+
+```powershell
+# Point Docker to Minikube registry
 & minikube -p minikube docker-env --shell powershell | Invoke-Expression
 
-# Build images inside Minikube's Docker
+# Build images
 docker build -t careerapex-backend:latest ./backend
 docker build -t careerapex-frontend:latest ./frontend
+```
 
-# Create namespace
+### Deploy
+
+```powershell
+# Apply all manifests
 kubectl apply -f k8s/manifests.yaml
 
-# Create the secret with your actual API keys
+# Create secrets
 kubectl create secret generic careerapex-secrets `
   --from-literal=OPENROUTER_API_KEY=sk-or-v1-xxx `
   --from-literal=LANGCHAIN_API_KEY=lsv2_xxx `
   -n careerapex
+```
 
-# Check everything is running
-kubectl get pods -n careerapex
-kubectl get services -n careerapex
+### Access
 
-# Open frontend in browser (Minikube exposes NodePort)
+```powershell
 minikube service careerapex-frontend-svc -n careerapex
+```
 
-# View logs
+### Monitor
+
+```powershell
+kubectl get pods -n careerapex
 kubectl logs -l app=careerapex-backend -n careerapex
-kubectl logs -l app=careerapex-frontend -n careerapex
-
-# Describe a pod (debugging)
 kubectl describe pod -l app=careerapex-backend -n careerapex
+```
 
-# Stop Minikube
+### Stop
+
+```powershell
 minikube stop
+```
 
+### Manifest Location
 
-═══════════════════════════════════════════════════════════════
-WHAT TO SAY IN INTERVIEWS
-═══════════════════════════════════════════════════════════════
+`careerapex/k8s/manifests.yaml`
 
-"I containerised the FastAPI backend using a multi-stage Docker build
-to keep the image lean — builder stage installs dependencies,
-runtime stage copies only what's needed. I pre-download the
-HuggingFace embedding model at build time so the first request
-isn't slow.
+Contains: Namespace, ConfigMap, Secret (template), PVC, Backend Deployment, Backend Service, Frontend Deployment, Frontend Service.
 
-For local development I use Docker Compose — one command spins up
-the FastAPI backend, Next.js frontend, and mounts a persistent
-volume for ChromaDB. No more managing separate terminals.
+---
 
-For production I deploy the backend to Render using the same
-Dockerfile, with a persistent disk mounted at /app/chroma_store.
-The frontend is on Vercel, pointing to the Render backend via
-NEXT_PUBLIC_API_URL environment variable.
+## ENVIRONMENT VARIABLES REFERENCE
 
-I also wrote Kubernetes manifests for local Minikube deployment —
-Deployments, Services, ConfigMap for non-sensitive config,
-Secrets for API keys, and a PersistentVolumeClaim for the
-vector database. This gave me hands-on experience with the full
-K8s primitives."
+### Backend (all required)
+
+| Variable | Description |
+|---|---|
+| `OPENROUTER_API_KEY` | LLM API key (Gemini via OpenRouter) |
+| `LANGCHAIN_API_KEY` | LangSmith tracing key |
+| `LANGCHAIN_TRACING_V2` | `true` to enable tracing |
+| `LANGCHAIN_PROJECT` | `careerapex-ai` |
+| `PORT` | Server port (Railway sets this automatically) |
+
+### Frontend (all required on Vercel)
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Full backend URL including https:// |
+
+---
+
+## PUSH AND DEPLOY WORKFLOW
+
+### Standard code change
+
+```powershell
+cd C:\Users\Azuro\careerapex
+
+# Make changes to files
+# Test locally first
+
+git add .
+git commit -m "feat/fix/chore: description"
+git push origin main
+
+# Vercel deploys frontend automatically (~45s)
+# Railway deploys backend automatically (~3-5 min)
+```
+
+### After backend deploy, always test
+
+```powershell
+# Wait 3-5 minutes for Railway build
+# Then test
+Invoke-RestMethod -Uri "https://careerapex-ai-production.up.railway.app/health"
+```
+
+### After frontend deploy, hard refresh browser
+
+```
+Ctrl + Shift + R on https://careerapex-ai.vercel.app/dashboard
+```
+
+---
+
+## COMMON DEPLOYMENT ISSUES AND FIXES
+
+### Frontend shows 404
+
+Check Vercel → Settings → Build and Deployment → Framework Preset → must be `Next.js`.
+
+### Backend shows "Application failed to respond"
+
+Check Railway → Networking → domain target port must be `8001`.
+
+### Backend OOM (out of memory)
+
+HuggingFace model is too large for Railway free tier 512MB. If this happens:
+- Check Railway logs for "Out of memory"
+- The model loads on first request — if first request OOMs, Railway restarts
+- Solution: use Railway Starter plan ($5/month, 1GB RAM)
+
+### Voice interview blank screen on cloud
+
+Railway is sleeping. Open `https://careerapex-ai-production.up.railway.app/health` in browser first. Wait for it to respond. Then start voice interview.
+
+### Sessions not persisting after redeploy
+
+Expected on Railway free tier. ChromaDB has no persistent disk. Always run full flow in one session. For persistence, add Railway disk: Dashboard → Storage → Add Disk → mount at `/app/chroma_store`.
+
+### CORS error in browser console
+
+`backend/main.py` `allow_origins` list must include your Vercel URL:
+```python
+allow_origins=[
+    "http://localhost:3000",
+    "https://careerapex-ai.vercel.app",
+]
+```
+
+---
+
+## INTERVIEW TALKING POINTS FOR DEPLOYMENT
+
+> "CareerApex is containerised with Docker using a multi-stage build — the builder stage installs Python dependencies, the runtime stage copies only the app code. I use Docker Compose for local development to spin up both FastAPI backend and Next.js frontend with one command, with a persistent volume for ChromaDB.
+
+> For production, the backend runs on Railway using the same Dockerfile, with the start command using shell form to properly expand the `$PORT` environment variable. The frontend is on Vercel, which auto-deploys on every GitHub push in about 45 seconds. The frontend calls the Railway backend via `NEXT_PUBLIC_API_URL` — a single environment variable that makes the same codebase work in local, staging, and production.
+
+> I also wrote Kubernetes manifests for Minikube — Deployments, Services, ConfigMap, Secrets, and a PersistentVolumeClaim for ChromaDB storage — which gave me hands-on experience with the full K8s primitives without any cloud cost."

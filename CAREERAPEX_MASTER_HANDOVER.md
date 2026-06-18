@@ -1,1033 +1,970 @@
-# CAREERAPEX MASTER HANDOVER DOCUMENT
-## Permanent Project Memory — For All Future Claude Chats
-### Last Updated: June 2026 | Version 1.0
+# CAREERAPEX AI — COMPLETE MASTER HANDOVER
+**Version:** 2.0 | **Date:** June 18, 2026 | **Status:** Production Live
+
+> This document is a complete project transfer package. A new Claude instance must be able to continue development with zero loss of context after reading this file.
 
 ---
 
-> **TO ANY FUTURE CLAUDE CHAT:**
-> Read this entire document before responding to Koushik. After reading, you should behave as if you participated in this project from Day 1. Never ask for context that is already here. Never require re-explanation of architecture, decisions, or preferences. Jump straight to helping.
+## SECTION 1 — PROJECT OVERVIEW
+
+### What is CareerApex?
+
+CareerApex is a full-stack AI-powered career operating system built by Koushik Gattu as his flagship portfolio project. It helps job seekers prepare for AI engineering roles by analysing their resume against job descriptions, identifying skill gaps, running mock interviews (text and voice), generating salary negotiation scripts, optimising LinkedIn profiles, and building personalised learning roadmaps.
+
+### Why It Was Built
+
+Koushik is a Senior QA Automation Engineer (~5 years experience) actively transitioning into AI/GenAI/LLM Engineering roles. He built CareerApex to:
+1. Demonstrate production-grade AI engineering skills to hiring managers
+2. Use as a live demo during interviews ("this is what I built")
+3. Show mastery of LangChain, LangGraph, RAG, ChromaDB, FastAPI, Next.js
+4. Have a public URL to put on his resume and GitHub
+
+### Target Users
+
+Primary: Koushik himself (and other engineers transitioning into AI roles)
+Secondary: Any job seeker who wants AI-powered career coaching
+
+### Core Business Value
+
+- Upload resume + JD → get instant gap analysis with match score
+- Practice interviews with AI that knows your resume
+- Voice interview with speech-to-text and text-to-speech
+- Salary negotiation roleplay with AI HR manager
+- LinkedIn profile optimisation
+- Personalised learning roadmap based on skill gaps
+
+### Main AI Capabilities
+
+- RAG-based resume analysis (resume + JD chunked, embedded, stored in ChromaDB)
+- LangGraph ReAct agent with 4 tools
+- Gap analysis chain (Gemini 2.5 Flash via OpenRouter)
+- Interview question generation chain
+- Answer evaluation chain
+- Negotiation script chain
+- LinkedIn optimisation chain
+- Cover letter generation chain
+- Career roadmap generation chain
+
+### Current Maturity Level
+
+Production-grade portfolio project. All 10 features functional. 82 passing tests. Live on internet with public URLs.
+
+### Current Deployment Status
+
+- **Frontend:** https://careerapex-ai.vercel.app (Vercel, free tier)
+- **Backend:** https://careerapex-ai-production.up.railway.app (Railway, free tier)
+- **Local:** Frontend port 3000, Backend port 8001
+- **GitHub:** https://github.com/Koushik2910/careerapex-ai
 
 ---
 
-# SECTION 1 — USER PROFILE
+## SECTION 2 — COMPLETE ARCHITECTURE
 
-## Who is Koushik Gattu?
+### Frontend Architecture
 
-**Full Name:** Koushik Gattu
-**Location:** Hyderabad, India
-**Current Company:** Azuro Technologies (client-embedded at Kroll)
-**Job Title:** Senior QA Automation Engineer
-**Total Experience:** ~4 years 8 months
-**Current CTC:** 13.18 LPA
-**GitHub:** https://github.com/Koushik2910
-**Portfolio:** koushikgattu.lovable.app
+**Framework:** Next.js 14 with TypeScript, Tailwind CSS, Framer Motion
+**Port:** 3000
+**Location:** `careerapex/frontend/`
 
-## Career Background
+**Routing:** Next.js App Router. Each page is `frontend/app/{route}/page.tsx`
+- `/` → redirects to `/dashboard`
+- `/dashboard` → Dashboard
+- `/analyse` → Resume Analyser
+- `/gaps` → Skill Gap Analysis
+- `/interview` → Mock Interview (text)
+- `/voice` → Voice Interview
+- `/debrief` → Interview Debrief
+- `/memory` → Career Memory
+- `/negotiate` → Salary Negotiation
+- `/linkedin` → LinkedIn Optimizer
+- `/roadmap` → Career Roadmap
 
-Koushik started his career in QA automation. He has 5 years of experience in Selenium, Playwright, pytest, Azure DevOps, and enterprise test frameworks. He was embedded at Kroll (restructuring software company) through Azuro Technologies for most of his career.
+**Components:**
+- `frontend/components/Sidebar.tsx` — left navigation sidebar, shared across all pages
+- `frontend/lib/api.ts` — all API call functions, uses `API_BASE` env var
+- `frontend/lib/utils.ts` — utility functions
 
-In early 2026, Koushik identified that QA automation is being automated away by AI and made a strategic decision to transition into AI Engineering. He started learning LangChain, LangGraph, RAG, and agentic AI — and built production-grade AI projects to demonstrate these skills.
+**State Management:** React `useState` / `useRef` / `useCallback` hooks only. No Redux or Zustand. Each page manages its own local state.
 
-**Previous Companies:** Azuro Technologies (Kroll), ITSS Global, Temenos
+**Critical Rule:** Never define sub-components (like `Field`, `Card`) INSIDE the main page component function. This causes React to remount them on every state change, breaking inputs. Always define helper components OUTSIDE the export default function.
 
-## Technical Strengths
-- Selenium, Playwright (Python + TypeScript), pytest, Azure DevOps
-- Python scripting and automation
-- API testing, CI/CD pipelines
-- LangChain LCEL chains, LangGraph ReAct agents
-- ChromaDB vector storage, HuggingFace embeddings
-- FastAPI, Pydantic v2
-- Next.js 14, React, TypeScript, Tailwind CSS
-- Prompt engineering, structured output, JSON parsing
-- LangSmith observability
+**Styling:** Custom CSS variables in `globals.css` + Tailwind utility classes. Dark theme. Design tokens: `--bg-primary`, `--bg-elevated`, `--text-primary`, `--text-secondary`, `--border-subtle`, etc.
 
-## Technical Weaknesses (Self-Acknowledged)
-- Limited cloud deployment experience (AWS/GCP/Azure production deploys)
-- No LoRA/fine-tuning hands-on experience
-- Limited experience with production-scale vector DBs (Pinecone at scale)
-- No Kubernetes/Docker in production
+**API Base URL:**
+```typescript
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+```
+This must be at the TOP of every page file that makes fetch calls. Never hardcode `http://localhost:8001` directly in fetch calls — this was the major bug that broke cloud deployment.
 
-## Learning Style
-- Learns by BUILDING, not by reading theory
-- Needs analogies — explains concepts like a 20-year-old graduate
-- Prefers ONE step at a time with confirmation before proceeding
-- Learns through mistakes — appreciates root cause explanations
-- Keeps handwritten notes (AI Engineering Master Notes document)
-- Likes real examples from CareerApex to anchor every concept
+**Environment Variables (Vercel):**
+```
+NEXT_PUBLIC_API_URL=https://careerapex-ai-production.up.railway.app
+```
 
-## Work Style
-- Methodical and thorough
-- Tests everything before moving on
-- Screenshots errors and shares them — doesn't paste text errors unless asked
-- Works on Windows 11, PowerShell, VS Code
-- Kroll VDI (no internet) for day job; personal machine for AI projects
-- Works late evenings and weekends on AI projects
+### Backend Architecture
 
-## Preferred Communication Style
-- **Direct and brief** — no motivational framing, no "great question!", no padding
-- **One step at a time** — give a command, wait for confirmation, then next step
-- **Always PowerShell syntax** — never bash unless explicitly asked
-- **Full file paths** — never relative paths, always absolute
-- **Complete files** — never partial edits, always full file content
-- **Download files** — never copy-paste code (causes U+00A0 non-breaking space errors)
-- **Tables for comparisons** — clear structure preferred over prose for decisions
-- **No emojis** unless Koushik uses them first
+**Framework:** FastAPI with Python 3.11
+**Port:** 8001
+**Location:** `careerapex/backend/`
 
-## What Should Be AVOIDED
-- Long motivational intros ("Great question! I'd be happy to help!")
-- Partial code edits (must give full file always)
-- Relative paths
-- Bash commands on Windows
-- Explaining things Koushik already knows (check memory first)
-- Asking multiple questions at once
-- Generic advice not tied to CareerApex specifics
+**Entry point:** `backend/main.py` — registers all routers, sets up CORS
 
----
-
-# SECTION 2 — CAREER GOALS
-
-## Current Salary
-13.18 LPA at Azuro Technologies (embedded at Kroll)
-
-## Target Salary
-26 LPA by February 2027
-
-## Target Roles
-- AI Automation Engineer
-- AI Application Engineer
-- GenAI Engineer
-- LLM Engineer
-- AI Quality Engineer
-
-**Preferred companies:** AI-first startups and product companies in Hyderabad (remote/hybrid preferred)
-
-## Short-Term Goal (Next 3-6 months)
-- Land an AI Engineer / GenAI Engineer role at 24+ LPA
-- Complete portfolio with 3 production-grade AI projects
-- Build strong GitHub presence with documented projects
-- Get active on LinkedIn with AI content
-
-## Long-Term Goal (1-2 years)
-- Senior AI Engineer at a product company
-- 35-40 LPA
-- Specialise in agentic AI and RAG systems
-
-## Why CareerApex Was Built
-1. Personal use case — Koushik was applying to AI roles and wanted to analyse his own resume vs JDs
-2. Demonstrate AI engineering skills (RAG, LangGraph, voice AI, caching, observability)
-3. Most impressive portfolio project because it's production-grade, has 10 features, is tested, and observable
-4. The project literally IS a career tool — using it to get the job that inspired it is a compelling interview story
-
-## Job Search Strategy
-- LinkedIn job applications (using Apify MCP scraper to find roles)
-- Naukri profile updated
-- GitHub profile showing working code (not just READMEs)
-- CareerApex as lead project in all applications
-- Target: roles with "LangChain", "RAG", "LLM", "AI Engineer" in JD
-
-## AI Engineer Roadmap
-Completed:
-- LangChain Days 1-12 (LCEL, RAG, memory, agents, LangSmith)
-- LexAI (Contract Intelligence Engine) — LangChain + hybrid search + CrossEncoder
-- CareerApex AI — full AI career OS
-
-Planned:
-- Deployment on cloud (Vercel + Railway/Render)
-- Add authentication to CareerApex
-- Study LLM evaluation (RAGAS)
-- Explore fine-tuning with LoRA
-
----
-
-# SECTION 3 — CAREERAPEX PROJECT
-
-## Complete Project Overview
-
-**Name:** CareerApex AI
-**Type:** AI Career Operating System
-**Status:** Fully functional, running locally
-**GitHub:** https://github.com/Koushik2910/careerapex-ai
-
-**One-line description:** A production-grade AI Career Operating System that analyses resumes against job descriptions using RAG, conducts mock and voice interviews, tracks confidence scores, and generates personalised career strategies.
-
-**Business Problem:** Job seekers don't know why they get rejected. They send the same resume everywhere, don't practice interviews systematically, and have no way to compare their skills against specific job requirements. CareerApex solves this by giving every user a personalised AI career coach that reads THEIR resume and THEIR JD.
-
-## Architecture
-
-### Frontend
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript
-- **Styling:** Tailwind CSS + custom CSS design system in `globals.css`
-- **Animations:** Framer Motion
-- **Charts:** Recharts
-- **Voice:** Web Speech API (SpeechSynthesis + SpeechRecognition, browser-native)
-- **Port:** 3000
-- **Location:** `C:\Users\Azuro\careerapex\frontend\`
-
-**Pages:**
-- `/dashboard` — `frontend/app/dashboard/page.tsx`
-- `/analyse` — `frontend/app/analyse/page.tsx`
-- `/gaps` — `frontend/app/gaps/page.tsx`
-- `/interview` — `frontend/app/interview/page.tsx`
-- `/voice` — `frontend/app/voice/page.tsx`
-- `/debrief` — `frontend/app/debrief/page.tsx`
-- `/memory` — `frontend/app/memory/page.tsx`
-- `/negotiate` — `frontend/app/negotiate/page.tsx`
-- `/linkedin` — `frontend/app/linkedin/page.tsx`
-- `/roadmap` — `frontend/app/roadmap/page.tsx`
-
-**Design System (globals.css):**
-- CSS custom properties: `--bg-base`, `--bg-surface`, `--bg-elevated`, `--bg-overlay`, `--bg-hover`
-- Text: `--text-primary`, `--text-secondary`, `--text-tertiary`, `--text-disabled`
-- Borders: `--border-default`, `--border-subtle`
-- Accent: `#F59E0B` (amber/gold — primary brand colour)
-- Success: `#10B981` (green)
-- Error: `#EF4444` (red)
-- Info: `#3B82F6` (blue)
-- Utility classes: `.card`, `.card-accent`, `.btn`, `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.badge`, `.badge-green`, `.badge-amber`, `.badge-red`, `.kpi-card`, `.progress-track`, `.progress-fill`, `.empty-state`, `.section-title`, `.section-header`
-
-**Sidebar Groups:**
-- WORKSPACE: Dashboard, Analyse, Skill Gaps
-- PRACTICE: Interview, Voice Interview, Debrief
-- TOOLS: Memory, Negotiate, LinkedIn, Roadmap
-
-### Backend
-- **Framework:** FastAPI
-- **Language:** Python 3.11
-- **Port:** 8001
-- **Location:** `C:\Users\Azuro\careerapex\backend\`
-- **Start command:** `cd C:\Users\Azuro\careerapex\backend && venv\Scripts\activate && uvicorn main:app --reload --port 8001`
-
-**Routers** (`backend/routers/`):
-- `upload.py` — `/upload/resume`, `/upload/jd`, `/upload/copy-resume`
-- `analyse.py` — `/analyse/gaps/{session_id}`, `/analyse/questions/{session_id}`, `/analyse/evaluate`
-- `interview.py` — `/interview/start`, `/interview/chat`, `/interview/cover-letter`
-- `memory.py` — `/memory/save`, `/memory/session/{id}`, `/memory/sessions`, `/memory/search`, `/memory/progress`, `DELETE /memory/session/{id}`
-- `tracker.py` — `/tracker/save`, `/tracker/scores/{id}`, `/tracker/summary/{id}`
-- `negotiate.py` — `/negotiate/script`, `/negotiate/roleplay/start`, `/negotiate/roleplay/chat`
-- `linkedin.py` — `/linkedin/optimize`, `/linkedin/headlines`
-- `agent.py` — `/agent/chat`
-
-**Chains** (`backend/chains/`):
-- `gap_analyser.py` — resume vs JD gap analysis
-- `question_gen.py` — interview question generation
-- `answer_eval.py` — answer scoring 0-100
-- `cover_letter.py` — personalised cover letter
-- `interview_chain.py` — multi-turn interview conversation
-- `negotiation.py` — salary negotiation scripts + roleplay
-- `linkedin_optimizer.py` — LinkedIn headline/about optimisation
-
-**All chains use `get_llm()` helper pattern:**
+**CORS Configuration:**
 ```python
-def get_llm(temperature=0.3) -> ChatOpenAI:
-    return ChatOpenAI(
-        model="google/gemini-2.5-flash",
-        openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-        openai_api_base="https://openrouter.ai/api/v1",
-        temperature=temperature,
-        default_headers={
-            "HTTP-Referer": "https://careerapex.ai",
-            "X-Title": "CareerApex AI"
-        },
-    )
+allow_origins=[
+    "http://localhost:3000",
+    "https://careerapex-ai.vercel.app",
+]
 ```
 
-**Agents** (`backend/agents/`):
-- `career_agent.py` — LangGraph ReAct agent with 4 tools
+**Routers (all in `backend/routers/`):**
+| Router file | Prefix | Purpose |
+|---|---|---|
+| `upload.py` | `/upload` | Resume + JD upload, embedding |
+| `analyse.py` | `/analyse` | Gap analysis, question gen, answer eval |
+| `interview.py` | `/interview` | Interview start, chat, cover letter |
+| `memory.py` | `/memory` | Session CRUD, progress tracking |
+| `tracker.py` | `/tracker` | Score saving, confidence tracking |
+| `negotiate.py` | `/negotiate` | Negotiation script, roleplay |
+| `linkedin.py` | `/linkedin` | Profile optimisation |
+| `agent.py` | `/agent` | LangGraph ReAct agent |
 
-**Memory** (`backend/memory/`):
-- `session_store.py` — ChromaDB CRUD operations
+**Chains (all in `backend/chains/`):**
+| Chain file | Purpose |
+|---|---|
+| `gap_analyser.py` | Resume vs JD gap analysis |
+| `question_gen.py` | Interview question generation |
+| `answer_eval.py` | Answer scoring + feedback |
+| `cover_letter.py` | Cover letter generation |
+| `interview_chain.py` | Interview conversation chain |
+| `negotiation.py` | Salary negotiation script |
+| `linkedin_optimizer.py` | LinkedIn profile optimisation |
+| `confidence_tracker.py` | Interview confidence analysis |
 
-### Database / Storage
-- **Vector DB:** ChromaDB PersistentClient at `./chroma_store`
-- **Collections:**
-  - `resume_{session_id}` — resume chunk embeddings
-  - `jd_{session_id}` — JD chunk embeddings
-  - `career_memory` — session history (all analyses, scores, filenames)
-- **Embeddings:** HuggingFace `all-MiniLM-L6-v2` (384 dimensions)
-- **Similarity metric:** cosine
+**Utilities:**
+- `backend/utils/chroma_client.py` — ChromaDB client setup
+- `backend/utils/session_store.py` — In-memory session store
+- `backend/utils/schemas.py` — Pydantic models
+- `backend/agents/career_agent.py` — LangGraph ReAct agent
 
-### LLM Stack
-- **Primary:** `google/gemini-2.5-flash` via OpenRouter
-- **API:** Uses `langchain-openai` ChatOpenAI with custom `openai_api_base="https://openrouter.ai/api/v1"`
-- **Env var:** `OPENROUTER_API_KEY`
-- **Migration history:** Groq (hit 100K tokens/day limit) → Gemini direct (20 req/day limit) → OpenRouter (current, generous limits)
+**`get_llm()` Pattern:** Every chain file uses a `get_llm()` helper function to create the LLM instance. This was introduced after migrating from Groq → direct Gemini → OpenRouter. Never hardcode the LLM anywhere — always call `get_llm()`.
 
-### LangSmith Observability
-```
-LANGCHAIN_API_KEY=...
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=careerapex-ai
-```
-All chains and agents auto-traced.
+### AI Layer
 
-### Session Management
-- **Session ID format:** `session-{timestamp}-{6_random_chars}` e.g. `session-1781234567890-abc123`
-- **Generated:** On first resume upload (or immediately when selecting a previous resume)
-- **Used for:** ChromaDB collection names, memory storage key, interview context, tracker scores
-- **Async safety:** Frontend uses `useRef` alongside `useState` for session_id and filenames — prevents stale closure bugs in async callbacks
+**LLM:** Gemini 2.5 Flash via OpenRouter
+- Uses `langchain-openai` with custom `openai_api_base`
+- Model string: `google/gemini-2.5-flash`
+- API key: `OPENROUTER_API_KEY`
 
-### Caching Architecture (Cache-First)
-- After gap analysis: full result JSON saved to `career_memory` as `analysis_data` field
-- Skill Gaps page: reads `analysis_data` from session → zero LLM call
-- Dashboard: reads from memory → zero LLM call
-- Career Memory: reads from ChromaDB → zero LLM call
-- Only these call LLM: Resume Analysis (once per session), Interview (per message), Voice Interview (per message), Debrief cover letter, Negotiation script, LinkedIn optimisation, Roadmap generation
-- **Token savings:** ~60% reduction vs naive re-generation
+**Embeddings:** HuggingFace `all-MiniLM-L6-v2`
+- Downloads ~90MB on first run
+- Loaded via `langchain_huggingface.HuggingFaceEmbeddings`
+- WARNING: Too heavy for Railway free tier (512MB RAM). First request is slow as model loads.
 
-### Voice Architecture
-- **STT:** `SpeechRecognition` (Web Speech API, Chrome only)
-- **TTS:** `SpeechSynthesis` (Web Speech API)
-- **Interviewer:** "Alex" — fixed name, consistent voice (priority: Google US English → Microsoft David → Alex → any en-US)
-- **Question limit:** Exactly 5 questions per session
-- **Flow:** AI speaks → user answers → transcript sent to `/interview/chat` → AI evaluates + asks next
-- **Audio leak prevention:** `stoppedRef = useRef(false)` — on unmount: cancel + abort all audio
+**Vector DB:** ChromaDB PersistentClient
+- Local path: `./chroma_store`
+- Collection: `career_memory`
+- Stores: resume chunks, JD chunks, gap analysis results
 
-### .env File (`backend/.env`)
-```
-OPENROUTER_API_KEY=your_key
-LANGCHAIN_API_KEY=your_langsmith_key
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=careerapex-ai
-```
+**RAG Flow:**
+1. User uploads resume PDF + JD file
+2. Backend extracts text, splits into chunks
+3. Chunks embedded with HuggingFace model
+4. Stored in ChromaDB under session ID
+5. Gap analysis retrieves both resume + JD chunks
+6. LLM analyses gap with full context
+
+**Session Handling:**
+- Session ID format: `session-{timestamp}-{random}`
+- Created on frontend when Analyse page loads
+- Passed to all backend calls as `session_id` parameter
+- Sessions persist in ChromaDB until manually deleted
+
+**Memory Architecture (Cache-First):**
+- After gap analysis, results saved to ChromaDB `career_memory` collection
+- Skill Gaps page reads from ChromaDB → zero LLM calls
+- Memory page reads from ChromaDB → zero LLM calls  
+- Roadmap page reads from ChromaDB → zero LLM calls
+- Only Analyse page calls the LLM for gap analysis
+
+**LangGraph ReAct Agent:**
+- Location: `backend/agents/career_agent.py`
+- 4 tools: `get_resume_info`, `get_job_requirements`, `analyse_gap`, `get_session_memory`
+- Accessed via `/agent/chat` endpoint
+- Used for free-form career coaching queries
+
+### Storage
+
+**ChromaDB:**
+- PersistentClient at `./chroma_store`
+- Two collections: raw document chunks + `career_memory` (analysis results)
+- On Railway free tier: NO persistent disk → data wiped on redeploy
+- On local: persists between restarts
+
+**Session Store:**
+- In-memory Python dict in `session_store.py`
+- Stores active session metadata
+- Lost on backend restart
+
+**Critical Cloud Limitation:** Railway free tier has no persistent disk. ChromaDB data is lost on every redeploy. For demo purposes, always run the full flow (Analyse → Interview → Memory) in one uninterrupted session.
+
+### Deployment Architecture
+
+**Railway (Backend):**
+- Root Directory: `backend`
+- Build: `pip install -r requirements.txt`
+- Start: `sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"`
+- Environment: Python 3.11 (set via `PYTHON_VERSION=3.11.9` env var)
+- Free tier: 512MB RAM, sleeps after 15 min inactivity
+
+**Vercel (Frontend):**
+- Root Directory: `frontend`
+- Framework: Next.js
+- Build: `npm run build`
+- Auto-deploys on every push to `main`
+
+**IMPORTANT — Railway Wake-Up Issue:**
+Railway free tier sleeps after 15 minutes. First request after sleep takes 30-60 seconds. This causes voice interview to appear broken (blank screen after Q1) because the `/interview/chat` call times out. Fix: open `https://careerapex-ai-production.up.railway.app/health` in a browser tab before starting interviews.
 
 ---
 
-# SECTION 4 — COMPLETE FEATURE INVENTORY
+## SECTION 3 — COMPLETE MODULE BREAKDOWN
 
-## Feature 1: Dashboard (`/dashboard`)
+### Module 1: Dashboard (`/dashboard`)
 
-**Purpose:** Overview of career health — latest match score, answer score, session count, quick actions, recent sessions.
+**Purpose:** Overview of career health at a glance — match score, avg answer score, sessions count, quick actions.
 
-**Inputs:** None (reads from memory)
+**How it works:**
+- Loads session list from `/memory/sessions`
+- Calculates aggregate stats from session data
+- Shows Quick Actions grid linking to all 8 features
+- Shows Recent Sessions list
 
-**Outputs:** KPI rings, quick action cards, recent sessions list
+**Frontend:** `frontend/app/dashboard/page.tsx`
+**Backend:** `/memory/sessions` endpoint in `memory.py`
 
-**Backend Flow:** `GET /memory/progress` → `GET /memory/sessions`
+**Data Flow:** Page load → fetch `/memory/sessions` → calculate stats → render
 
-**Frontend Flow:** `useEffect` calls `getProgress()` + `getSessions()` in parallel. Auto-refreshes on `visibilitychange` event (when user navigates back). Also polls every 30 seconds.
-
-**AI Components:** None — zero LLM calls
-
-**Caching:** Reads from ChromaDB career_memory. All data from cached sessions.
-
-**Known Issues:** Sessions count in progress summary uses `sessions_count` from progress API, not `sessions.length` — can diverge if sessions deleted manually.
-
-**Future Improvements:** Real-time WebSocket updates, activity timeline, skill trend charts over time
+**Known Limitations:** Stats are zero if no sessions exist. ChromaDB wipe on Railway redeploy clears all sessions.
 
 ---
 
-## Feature 2: Resume Analysis (`/analyse`)
+### Module 2: Resume Analyser (`/analyse`)
 
-**Purpose:** Upload resume + JD → AI gap analysis with match score (0-100), skill gaps with priorities, strengths, recommendations.
+**Purpose:** Upload resume + JD, run AI gap analysis, get match score + skill gaps + strengths + recommendations.
 
-**Inputs:** Resume PDF/DOCX, JD PDF/DOCX, session_id (auto-generated)
+**How it works:**
+1. Page generates a session ID on mount
+2. User uploads resume PDF → POST `/upload/resume`
+3. User uploads JD (PDF/DOCX) → POST `/upload/jd`
+4. Backend chunks + embeds both files, stores in ChromaDB under session ID
+5. User clicks "Run Gap Analysis" → POST `/analyse/gaps`
+6. Backend retrieves chunks, calls LLM chain, returns structured JSON
+7. Results saved to ChromaDB + memory store
+8. Frontend displays score, gaps, strengths, recommendations
 
-**Outputs:** match_score, skill_gaps[], strengths[], recommendations[], summary
+**Frontend:** `frontend/app/analyse/page.tsx`
+**Backend:** `upload.py` (upload endpoints) + `analyse.py` (gap endpoint)
+**Chains:** `gap_analyser.py`
 
-**Backend Flow:**
-1. `POST /upload/resume` — pypdf/python-docx text extraction → chunk → HuggingFace embed → ChromaDB `resume_{sid}`
-2. `POST /upload/jd` — same process → ChromaDB `jd_{sid}`
-3. `POST /analyse/gaps/{session_id}` — retrieve all chunks → join → truncate (6000+3000 chars) → LangChain chain → Gemini → JsonOutputParser → Pydantic validate
-4. Auto-save to `career_memory` collection via `/memory/save`
+**Key Endpoints:**
+- `POST /upload/resume` — upload + embed resume
+- `POST /upload/jd` — upload + embed JD
+- `POST /analyse/gaps` — run gap analysis
 
-**Frontend Flow:**
-- Resume DropZone → uploads on file selection
-- JD DropZone — enabled only after resume uploaded
-- Previous Resume Dropdown — appears when sessions exist and resume zone is idle
-  - Selecting generates NEW session_id immediately
-  - Calls `/upload/copy-resume` to copy resume embeddings to new session
-  - JD uploads to new session_id
-  - Analysis uses new session_id (both resume + JD present)
-- 6-step animated loader during analysis (StepLoader component)
-- Auto-save to memory after analysis with `resumeFilenameRef.current` (not state — prevents stale closure)
-- Green "Session saved to Career Memory" confirmation shown
-
-**AI Components:**
-- HuggingFace all-MiniLM-L6-v2 (embeddings)
-- LangChain LCEL: `prompt | ChatOpenAI(temp=0.2) | JsonOutputParser(pydantic_object=GapAnalysisResult)`
-
-**Caching:** Analysis result saved to ChromaDB. Subsequent Skill Gaps visits read from cache.
-
-**Key Bug Fixed:** Stale closure — `resumeFilenameRef` and `sessionIdRef` (useRef) used in async callbacks instead of state
-
-**Previous Resume Dropdown:**
-- Deduplicates by `resume_filename` — shows unique resumes only (latest session per resume)
-- Shows: filename, last used date, last match score
-- Generates new session_id on selection (not at analysis time — that was the original bug)
-- `/upload/copy-resume` endpoint copies ChromaDB chunks from old session to new session
-
-**Pydantic Output Model:**
-```python
-class GapAnalysisResult(BaseModel):
-    overall_match_score: int
-    skill_gaps: List[SkillGap]  # {skill, required_level, current_level, gap_score, priority}
-    strengths: List[str]
-    recommendations: List[str]
-    summary: str
-```
-
-**Known Issues:** None currently
-
-**Future Improvements:** Multiple JD comparison, batch analysis, ATS keyword highlighting
-
----
-
-## Feature 3: Skill Gap Analysis (`/gaps`)
-
-**Purpose:** Visual breakdown of skill gaps from cached analysis — bar chart, progress bars, priority badges. Zero LLM calls.
-
-**Inputs:** Session selected from dropdown
-
-**Outputs:** Same data as Analysis page — match score, skill gaps chart, strengths, recommendations
-
-**Backend Flow:** `GET /memory/sessions` → session selected → read `analysis_data` from session → no LLM
-
-**Frontend Flow:**
-- Session dropdown populated from `/memory/sessions`
-- Dropdown shows: resume filename, JD filename, date, match score
-- Selecting session: checks `session.analysis_data` → if exists, render immediately
-- Fallback: calls `/analyse/gaps/{session_id}` only if no cached data
-- Shows "Cached · No LLM call" badge
-- Recharts BarChart for gap scores, animated progress bars via Framer Motion
-
-**AI Components:** None — pure cache read
-
-**Caching:** This IS the cache consumer. Relies on analysis_data saved during Resume Analysis.
-
-**Known Issues:** If analysis was run before the cache-first update, `analysis_data` may be empty → falls back to LLM
-
-**Future Improvements:** Skill gap trend over time (compare across sessions), downloadable report
-
----
-
-## Feature 4: Mock Interview (`/interview`)
-
-**Purpose:** AI conducts personalised mock interview using questions generated from user's actual resume and JD. Standard mode (supportive) and Resume Defense mode (challenging).
-
-**Inputs:** session_id, mode (standard/defense), user answers
-
-**Outputs:** AI questions, per-answer feedback, score
-
-**Backend Flow:**
-- `POST /interview/start` — generates first question using ChromaDB resume+JD context
-- `POST /interview/chat` — multi-turn conversation, history passed each time
-- Backend uses `interview_chain.py`: `SystemMessage(resume+JD context) + history + HumanMessage(answer)`
-
-**Frontend Flow:**
-- Mode selection (Standard / Defense)
-- Session ID input
-- Chat interface with typing animation on AI responses
-- Each answer sent with full conversation history
-- Score saved via `/tracker/save`
-
-**AI Components:** LangChain LCEL interview chain (temp=0.5 for natural variation)
-
-**Caching:** Resume/JD context retrieved from ChromaDB on each `/interview/start`. No LLM caching — every answer needs evaluation.
-
-**Known Issues:** No question count limit in standard mock interview (only Voice Interview has 5-question limit)
-
-**Future Improvements:** Add question count limit to mock interview too, topic-based question sets
-
----
-
-## Feature 5: Voice Interview (`/voice`)
-
-**Purpose:** Full voice-based mock interview. Alex (AI interviewer) speaks questions, user answers verbally, AI transcribes, evaluates, asks next question. Exactly 5 questions then feedback.
-
-**Inputs:** session_id (required — loads resume+JD context), mode, voice
-
-**Outputs:** 5 AI questions, 5 user answers, per-question scores and feedback, overall score
-
-**Interviewer:** Alex (fixed name, consistent)
-- Voice priority: Google US English → Microsoft David → Alex → any en-US
-- Rate: 0.92, Pitch: 1.0, Volume: 1.0
-
-**Question Flow:**
-- Q1: Alex introduces himself and asks first question from resume+JD
-- Q2-Q3: Follow-up questions from resume+JD
-- Q4: "We have 2 questions remaining. [question]"
-- Q5: "This is your final question. [question]"
-- After Q5 answer: Alex gives closing statement → feedback screen appears automatically
-
-**Backend Flow:**
-- `POST /interview/chat` with `session_id`, message, history, mode, interviewer_name, max_questions, current_question_number
-- Backend retrieves resume+JD from ChromaDB using session_id
-- `POST /analyse/evaluate` for per-answer scoring
-
-**Frontend State Machine:**
-```
-setup → processing → ai-speaking → listening → processing → ai-speaking → ...
-                                                                        ↓ (after Q5)
-                                                                    feedback
-```
-
-**Audio Leak Prevention:**
-- `stoppedRef = useRef(false)`
-- On End Session / unmount: `stoppedRef.current = true` + `window.speechSynthesis.cancel()` + `recognition.abort()`
-
-**Feedback Screen:**
-- Overall score (average of 5 question scores)
-- Per-question card: question, user's answer, score/100, feedback
-- "Practice Again with Alex" button → resets to setup
-- "View Full Debrief" button → `/debrief`
-
-**Chrome Only:** Web Speech API not supported in Firefox/Safari
+**Cache:** Results stored in ChromaDB. Skill Gaps page reads from this cache.
 
 **Known Issues:**
-- "no-speech" errors if user is silent → Alex says "I didn't hear anything" and restarts recognition
-- Voice selection depends on browser having voices loaded (uses `onvoiceschanged` callback)
-
-**Future Improvements:** ElevenLabs for consistent voice quality, Whisper for better STT, visual waveform
+- Large PDFs take 30-60s to embed on Railway (model loading)
+- Session ID must be passed consistently to all subsequent calls
 
 ---
 
-## Feature 6: Interview Debrief (`/debrief`)
+### Module 3: Skill Gap Analysis (`/gaps`)
 
-**Purpose:** Post-interview scorecard — score progression, category breakdown, cover letter generation.
+**Purpose:** Visual breakdown of skill gaps from the last analysis. Bar charts, gap scores, strengths.
 
-**Inputs:** session_id
+**How it works:**
+- Cache-first: reads analysis from ChromaDB via `/analyse/gaps/{session_id}`
+- Zero LLM calls — pure data display
+- Shows session dropdown if multiple sessions exist
 
-**Outputs:** avg_score, confidence_trend, category_breakdown, score_chart, cover_letter
+**Frontend:** `frontend/app/gaps/page.tsx`
+**Backend:** `GET /analyse/gaps/{session_id}` in `analyse.py`
 
-**Backend Flow:**
-- `GET /tracker/summary/{session_id}` — aggregates all saved answer scores
-- `POST /interview/cover-letter` — generates cover letter (LLM call)
-
-**Frontend Flow:**
-- Score rings (SVG animated strokeDashoffset)
-- Recharts LineChart (score over time), RadarChart (category breakdown)
-- Cover letter generated on demand (not auto-generated)
-
-**AI Components:** Cover letter chain (temp=0.6 for creative writing)
-
-**Caching:** Tracker scores read from ChromaDB. Cover letter re-generated each time (no cache).
-
-**Future Improvements:** Cache cover letter per session, export to DOCX, email to self
+**CRITICAL:** This page must use `API_BASE` not `localhost:8001`. Fixed in the localhost→API_BASE migration.
 
 ---
 
-## Feature 7: Career Memory (`/memory`)
+### Module 4: Mock Interview (`/interview`)
 
-**Purpose:** Full session history with JD filename, resume filename, match scores, delete functionality, progress comparison.
+**Purpose:** Text-based AI mock interview. AI asks questions based on resume+JD. User types answers. AI scores each answer.
 
-**Inputs:** None (reads all sessions)
+**How it works:**
+1. User enters session ID (from Analyse page)
+2. POST `/interview/start` → generates first question
+3. User types answer → POST `/interview/chat` with full history
+4. Backend evaluates answer, generates next question
+5. After N questions, shows session summary
 
-**Outputs:** Session list (newest first), session detail, progress summary
+**Frontend:** `frontend/app/interview/page.tsx`
+**Backend:** `interview.py`
+**Chains:** `question_gen.py`, `answer_eval.py`, `interview_chain.py`
 
-**Backend Flow:** `GET /memory/sessions` + `GET /memory/progress`
+**Key Endpoints:**
+- `POST /interview/start` — start session, get Q1
+- `POST /interview/chat` — send answer, get next Q + score
 
-**Frontend Flow:**
-- Progress summary card (total sessions, latest match, previous match, delta)
-- Session list (left panel) — shows resume filename, JD filename, match score, date
-- Session detail (right panel) — strengths tags, skill gap tags, score KPIs, session ID, date
-- Delete: trash icon → confirmation modal → `DELETE /memory/session/{id}`
-- Auto-refresh on `visibilitychange`
-- Refresh button for manual refresh
+---
 
-**Session Storage Fields:**
-```python
+### Module 5: Voice Interview (`/voice`)
+
+**Purpose:** AI speaks questions aloud. User answers by voice. Transcript captured via Web Speech API. AI evaluates.
+
+**How it works:**
+1. User enters session ID + selects mode (Standard/Defense)
+2. `startInterview()` calls `askNextQuestion(0, [])`
+3. Backend (`/interview/chat`) returns AI text
+4. Browser `SpeechSynthesis` speaks the text aloud
+5. `SpeechRecognition` listens for user answer
+6. `onend` event fires → `processAnswer(transcript)`
+7. `processAnswer` → evaluates answer → calls `askNextQuestion(count+1, history)`
+8. After Q5 → shows feedback screen
+
+**Frontend:** `frontend/app/voice/page.tsx`
+**Backend:** `/interview/chat` (same as mock interview)
+**Browser APIs:** `SpeechSynthesis`, `SpeechRecognition` (Chrome only)
+
+**CRITICAL ARCHITECTURE NOTE:**
+- `processAnswer` is defined with `useCallback` and depends on `[history, sessionId, feedbackList]`
+- `askNextQuestion` depends on `[sessionId, mode, startListening]`
+- `startListening` depends on `[]` (no deps)
+- These dependency arrays are critical. Changing them breaks the flow.
+
+**Known Bug — Blank Screen After Q1 on Cloud:**
+Root cause: Railway sleeps mid-session. `/interview/chat` call times out after 30s. Error handler sets `status = "ended"` which renders nothing (blank). The render condition only shows content for `ai-speaking | listening | processing`. When `ended` is set, the screen goes blank.
+
+**Fix Applied:** Added `"ended"` to render conditions in `voice_page_v3.tsx`. But this only helps show the error — it doesn't fix Railway sleeping.
+
+**NEVER TOUCH:** The `stoppedRef` pattern, the `speak()` helper, the `getVoice()` function. These are carefully tuned for cross-browser compatibility.
+
+**Local vs Cloud:**
+- Local: works perfectly if backend is running
+- Cloud: breaks if Railway sleeps between Q1 and Q2
+
+---
+
+### Module 6: Interview Debrief (`/debrief`)
+
+**Purpose:** Post-interview scorecard — avg score, confidence, completion rate, best/worst answers, cover letter generation.
+
+**How it works:**
+- Auto-loads sessions from `/memory/sessions` on mount
+- Pre-fills session ID with most recent session
+- User can select session → loads tracker data from `/tracker/summary`
+- Shows performance breakdown
+- "Generate" button → POST `/interview/cover-letter` → generates cover letter
+
+**Frontend:** `frontend/app/debrief/page.tsx`
+**Backend:** `tracker.py`, `interview.py`
+
+**Fix Applied:** Was defaulting to `"test-session-001"` (hardcoded). Fixed to auto-load from memory sessions.
+
+---
+
+### Module 7: Career Memory (`/memory`)
+
+**Purpose:** Full session history with progress over time. Shows all past sessions, session details, strengths, skill gaps.
+
+**How it works:**
+- Cache-first: reads from `/memory/sessions` and `/memory/session/{id}`
+- Zero LLM calls
+- Shows progress comparison between sessions
+
+**Frontend:** `frontend/app/memory/page.tsx`
+**Backend:** `memory.py`
+
+**Key Endpoints:**
+- `GET /memory/sessions` — list all sessions
+- `GET /memory/session/{id}` — get session detail
+- `DELETE /memory/session/{id}` — delete session
+
+---
+
+### Module 8: Salary Negotiation (`/negotiate`)
+
+**Purpose:** Generate salary negotiation script + roleplay with AI HR manager.
+
+**How it works:**
+- Tab 1 "Negotiation Script": User fills form (current offer, target, role, company, experience, competing offers, strengths) → LLM generates script
+- Tab 2 "Roleplay Practice": Chat interface with AI acting as HR manager
+
+**Frontend:** `frontend/app/negotiate/page.tsx`
+**Backend:** `negotiate.py`
+**Chains:** `negotiation.py`
+
+**Fixed Bug:** `Field` component was defined inside `NegotiatePage()` → remounted on every keypress → input lost focus after each character. Fixed by moving `Field` OUTSIDE the component function.
+
+**Key Endpoints:**
+- `POST /negotiate/script` — generate negotiation script
+- `POST /negotiate/roleplay/start` — start roleplay session
+- `POST /negotiate/roleplay/chat` — continue roleplay
+
+---
+
+### Module 9: LinkedIn Optimizer (`/linkedin`)
+
+**Purpose:** Optimise LinkedIn headline and About section based on resume content.
+
+**How it works:**
+- User pastes current headline + about section + target role
+- LLM generates optimised versions
+- Shows side-by-side comparison
+
+**Frontend:** `frontend/app/linkedin/page.tsx`
+**Backend:** `linkedin.py`
+**Chains:** `linkedin_optimizer.py`
+
+**Fixed Bug:** Same `Field` inside component bug as Negotiate. Fixed by moving `Field` OUTSIDE.
+
+**Key Endpoints:**
+- `POST /linkedin/optimize` — generate optimised headline + about
+- `POST /linkedin/headlines` — generate multiple headline options
+
+---
+
+### Module 10: Career Roadmap (`/roadmap`)
+
+**Purpose:** Personalised 8-week learning plan to close skill gaps.
+
+**How it works:**
+- Reads skill gaps from ChromaDB (cache-first, zero LLM calls if session exists)
+- If no session: calls LLM to generate generic roadmap
+- Parses `WEEK X:` format from LLM response
+- Shows week-by-week breakdown with topics and resources
+
+**Frontend:** `frontend/app/roadmap/page.tsx`
+**Backend:** `agent.py` (LangGraph agent handles roadmap queries)
+
+**Known Issue:** `parseRoadmap()` fallback breaks if Gemini doesn't use exact `WEEK X:` format. LLM responses are non-deterministic.
+
+---
+
+## SECTION 4 — TOKEN OPTIMIZATION
+
+### Which Modules Call LLM
+
+| Module | Calls LLM? | When |
+|---|---|---|
+| Dashboard | ❌ No | Never |
+| Analyse | ✅ Yes | On "Run Gap Analysis" click |
+| Skill Gaps | ❌ No | Reads from ChromaDB cache |
+| Interview | ✅ Yes | Every message exchange |
+| Voice Interview | ✅ Yes | Every question generation + eval |
+| Debrief | ✅ Yes | Cover letter generation only |
+| Memory | ❌ No | Reads from ChromaDB cache |
+| Negotiate | ✅ Yes | Script generation + roleplay |
+| LinkedIn | ✅ Yes | Optimisation generation |
+| Roadmap | ✅ Sometimes | Only if no cached session |
+
+### Cache Architecture
+
+After Analyse runs:
+```
+ChromaDB career_memory collection:
 {
-  session_id, resume_filename, jd_filename,
-  match_score, questions_asked, avg_answer_score,
-  timestamp, skill_gaps[], strengths[],
-  analysis_data (full JSON), user_id
+  session_id: "session-xxx",
+  match_score: 92,
+  gaps: [...],
+  strengths: [...],
+  recommendations: [...],
+  resume_file: "resume.pdf",
+  jd_file: "jd.docx"
 }
 ```
 
-**Delete Flow:** `collection.delete(ids=[session_id])` in ChromaDB. Frontend updates local state.
+Skill Gaps, Memory, and Roadmap pages all read from this cache. Zero LLM calls.
 
-**AI Components:** None
+### Why This Matters
 
-**Future Improvements:** Export session history, filter by date/score, bulk delete
-
----
-
-## Feature 8: Salary Negotiation (`/negotiate`)
-
-**Purpose:** Generate tactical negotiation script + practice with AI HR manager roleplay.
-
-**Inputs:** current_offer, target_salary, role, company, experience, competing_offers, strengths
-
-**Outputs:** Script with exact phrases, roleplay conversation
-
-**Backend Flow:**
-- `POST /negotiate/script` — generates script (temp=0.4 for precision)
-- `POST /negotiate/roleplay/start` — AI plays HR manager at specific company
-- `POST /negotiate/roleplay/chat` — multi-turn roleplay
-
-**Frontend Flow:** Two tabs — Script Generator and Roleplay Chat
-
-**AI Components:** Negotiation chain (temp=0.4 for scripts, 0.6 for roleplay)
-
-**Future Improvements:** Industry-specific benchmarks, offer comparison tool
+Without caching, navigating to Skill Gaps would call Gemini again → costs tokens + 3-5 second delay. With caching, it's instant.
 
 ---
 
-## Feature 9: LinkedIn Optimizer (`/linkedin`)
+## SECTION 5 — SESSION MANAGEMENT DESIGN
 
-**Purpose:** Rewrite LinkedIn headline and About section with recruiter-optimised keywords.
+### How Sessions Are Created
 
-**Inputs:** Current headline, current About section, session_id (for resume context)
-
-**Outputs:** Optimised headline, 5 headline variants, optimised About section, keywords_added[], profile_strength_score, recommendations[]
-
-**Backend Flow:**
-- `POST /linkedin/optimize` — full profile analysis (LLM)
-- `POST /linkedin/headlines` — 5 headline variants (LLM, temp=0.5)
-
-**Frontend Flow:** Two tabs — Profile Optimizer and Headline Variants
-
-**Pydantic Output:**
-```python
-class LinkedInResult(BaseModel):
-    headline: HeadlineResult  # {original, optimized, improvements[], keywords_added[]}
-    about: AboutResult
-    skills_to_add: List[str]
-    keywords: List[str]
-    profile_strength_score: int
-    recommendations: List[str]
+On the Analyse page, when it mounts:
+```typescript
+const [sessionId] = useState(`session-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
 ```
 
-**AI Components:** LinkedIn optimizer chain (temp=0.4)
+This session ID is shown on screen and must be copied to use in Interview/Voice pages.
 
-**Caching:** No cache — regenerates each time. Future: cache per session.
+### How Resume and JD Are Linked
 
----
+Both uploaded files are stored in ChromaDB under the session ID as the namespace. When gap analysis runs, it retrieves chunks by session ID.
 
-## Feature 10: Career Roadmap (`/roadmap`)
+### How Analysis Is Stored
 
-**Purpose:** Week-by-week learning plan to close skill gaps and transition to target role.
+After gap analysis:
+1. Results JSON saved to `backend/utils/session_store.py` (in-memory)
+2. Results also saved to ChromaDB `career_memory` collection
+3. Memory endpoint reads from ChromaDB
 
-**Inputs:** session_id (dropdown), target_role, timeframe (1/2/3 months)
+### How Dashboard Uses Sessions
 
-**Outputs:** Weekly roadmap cards with tasks and resources, completion tracking
+`GET /memory/sessions` → returns all session metadata → dashboard calculates aggregate stats.
 
-**Backend Flow:** `POST /agent/chat` — LangGraph career agent generates roadmap directly (instructed NOT to use tools)
+### How Memory Page Uses Sessions
 
-**Frontend Flow:**
-- Session dropdown (auto-selects latest session)
-- Target role input, timeframe select
-- Generate button → agent call
-- `parseRoadmap()` splits on `WEEK \d+:` regex
-- Expandable week cards with task checklist
-- Progress bar: `completed.size / roadmap.length * 100`
-- Checkboxes toggle completion state
+Same endpoint. Shows full history per session with expandable details.
 
-**AI Components:** LangGraph career agent (roadmap prompt instructs: "Do not use tools. Write the roadmap directly.")
+### How Skill Gaps Use Sessions
 
-**Future Improvements:** Save roadmap to database, calendar integration, resource links
+`GET /analyse/gaps/{session_id}` → returns cached analysis from ChromaDB.
 
----
+### Common Bugs
 
-# SECTION 5 — COMPLETE AI KNOWLEDGE JOURNEY (Days 1-12)
+1. **Session not found:** User goes to Skill Gaps without running analysis first
+2. **Wrong session ID in Voice:** User types wrong session ID → AI has no resume context → generic questions
+3. **Sessions wiped on Railway redeploy:** ChromaDB has no persistent disk on free tier
+4. **Debrief showing zeros:** Was using hardcoded `"test-session-001"` — fixed to auto-load
 
-## Day 1 — LLM Basics and Messages
-**Concept:** `ChatOpenAI`, `HumanMessage`, `AIMessage`, `SystemMessage`, `.invoke()`
-**Definition:** LangChain wraps all LLM APIs with a consistent interface. Messages are typed objects with roles.
-**Why Learned:** Foundation of every AI call in the project
-**Used in CareerApex:** Every chain and agent. Interview chain: `[SystemMessage(resume_context), ...history, HumanMessage(answer)]`
-**Interview Answer:** "LangChain provides a consistent `.invoke()` interface across all LLM providers. Message types — System (instructions), Human (user), AI (model response) — form the structure of every LLM conversation."
+### Fixes Already Implemented
 
-## Day 2 — Prompt Templates
-**Concept:** `ChatPromptTemplate.from_messages([...])` with `{variables}`
-**Definition:** Reusable prompt templates with named placeholders filled at runtime
-**Why Learned:** Separate structure from data — one template, many uses
-**Used in CareerApex:** All 7 chains use ChatPromptTemplate. Gap analysis: `{resume_text}`, `{jd_text}` variables.
-**Interview Answer:** "Prompt templates separate the prompt structure from runtime data. Variables are filled at `.invoke()` time, making prompts reusable, testable, and maintainable."
-
-## Day 3 — Output Parsers
-**Concept:** `JsonOutputParser(pydantic_object=Model)`, `StrOutputParser()`
-**Definition:** Converts raw LLM string output into structured data (dict, list, typed objects)
-**Why Learned:** Apps need data structures, not raw strings
-**Used in CareerApex:** `JsonOutputParser(pydantic_object=GapAnalysisResult)` enforces schema in gap analysis and question generation
-**Interview Answer:** "Output parsers transform LLM text into structured data. JsonOutputParser with Pydantic validates the schema — if LLM returns wrong types, it raises immediately rather than causing downstream bugs."
-
-## Day 4 — LCEL (LangChain Expression Language)
-**Concept:** Pipe operator `|` composing Runnables: `prompt | llm | parser`
-**Definition:** Chain components together with `|`. Each is a Runnable with `.invoke()`, `.stream()`, `.batch()`
-**Why Learned:** Clean, auto-streaming, auto-LangSmith-tracing, consistent interface
-**Used in CareerApex:** All 7 chains. `chain = prompt | get_llm() | JsonOutputParser(...)` — one line is the entire pipeline
-**Interview Answer:** "LCEL uses the pipe operator to compose Runnables. Auto-supports streaming, async, parallelisation, and LangSmith tracing. Every component is swappable."
-
-## Day 5 — Memory and Conversation History
-**Concept:** Passing full message history on every LLM call; LLMs are stateless
-**Definition:** Maintain conversation context by passing all previous messages on each turn
-**Why Learned:** Interview chains need multi-turn conversations
-**Used in CareerApex:** Interview + negotiation roleplay: frontend maintains `messages[]` array, passed to backend on every request
-**Interview Answer:** "LLMs are stateless — every call starts fresh. Conversation memory = pass full message history on every request. Frontend maintains the history array; backend prepends SystemMessage and appends new HumanMessage."
-
-## Day 6 — Document Loaders and Text Splitters
-**Concept:** `PyPDFLoader`, `RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)`
-**Definition:** Extract text from files, split into embedding-sized chunks
-**Why Learned:** Need to process uploaded resume and JD files
-**Used in CareerApex:** `pypdf.PdfReader` for PDF, `python-docx` for DOCX. Manual extraction for control. ~500 token chunks.
-**Interview Answer:** "Document loaders extract text; text splitters divide into chunks fitting embedding model limits. Overlap prevents context loss at boundaries. `RecursiveCharacterTextSplitter` splits on paragraphs→sentences→words."
-
-## Day 7 — ChromaDB Vector Store
-**Concept:** `PersistentClient`, `get_or_create_collection`, `upsert`, `query`
-**Definition:** Open-source vector database with persistent storage, cosine similarity, metadata support
-**Why Learned:** Need to store and retrieve resume/JD embeddings and session history
-**Used in CareerApex:** Three collections. `upsert()` for no-duplicate sessions. `get()` for full document retrieval (not similarity — need ALL chunks).
-**Interview Answer:** "ChromaDB `PersistentClient` stores to disk. `add()` stores, `upsert()` updates-or-inserts, `query()` does ANN similarity search. Metadata stored alongside embeddings for filtering and retrieval."
-
-## Day 8 — RAG Pipeline End-to-End
-**Concept:** Document → chunk → embed → vector store → retriever → LLM chain
-**Definition:** Retrieval-Augmented Generation: search knowledge base → inject into prompt → generate grounded response
-**Why Learned:** Core feature of CareerApex — personalised analysis from actual resume content
-**Used in CareerApex:** Upload → chunk → embed → ChromaDB. Analysis → retrieve all chunks → join → inject → Gemini → parse
-**Interview Answer:** "RAG pipeline: ingest (chunk→embed→store), query (embed→retrieve→inject→generate). LLM knowledge comes from retrieved documents, not training data — reduces hallucinations, enables personalisation."
-
-## Day 9 — Conversational RAG
-**Concept:** Combining RAG with conversation history; resolving ambiguous references before retrieval
-**Definition:** Multi-turn conversations where the AI both remembers the conversation AND grounds answers in retrieved documents
-**Why Learned:** Interview chain needs resume context AND conversation history
-**Used in CareerApex:** Interview chain manually implements this — system prompt includes resume context, history passed each turn
-**Interview Answer:** "`create_history_aware_retriever` rephrases ambiguous queries using conversation history before retrieval. Enables 'that' and 'it' references to work across turns."
-
-## Day 10 — Hybrid Search and CrossEncoder
-**Concept:** BM25 + vector search via `EnsembleRetriever`, CrossEncoder re-ranking
-**Definition:** Combine keyword (exact) and semantic (meaning) search for best precision. Re-ranker scores pairs more accurately.
-**Why Learned:** Better retrieval quality for contract analysis
-**Used in CareerApex:** Implemented in LexAI (Contract Intelligence Engine). CareerApex uses vector-only search — hybrid is a future enhancement.
-**Interview Answer:** "Hybrid combines BM25 (exact term frequency) with dense vector retrieval. RRF merges results. CrossEncoder re-ranks top-k pairs with full cross-attention — much more accurate than vector similarity alone."
-
-## Day 11 — LangSmith Tracing
-**Concept:** 3 env vars → auto-trace all chains and agents
-**Definition:** Observability platform recording every LLM call — inputs, outputs, token counts, latency, cost per step
-**Why Learned:** Production AI needs visibility — debugging without traces is guesswork
-**Used in CareerApex:** All 3 env vars in `.env`. Every gap analysis and agent run visible in LangSmith dashboard with full trace.
-**Interview Answer:** "LangSmith auto-traces when `LANGCHAIN_TRACING_V2=true`. Each trace shows full prompt, raw response, token count, latency, cost per step. Used to debug the Gemini content-list format issue."
-
-## Day 12 — LangGraph Agents
-**Concept:** `StateGraph`, nodes, conditional edges, `ToolNode`, `@tool` decorator, ReAct pattern
-**Definition:** Graph-based framework for stateful multi-step AI workflows where the agent decides its own sequence of actions
-**Why Learned:** Career agent needs to dynamically choose between gap analysis, questions, evaluation, and advice tools
-**Used in CareerApex:** Career agent in `backend/agents/career_agent.py`. 4 tools. Agent → conditional edge → tools → back to agent.
-**Interview Answer:** "LangGraph StateGraph: agent node runs LLM with bound tools → conditional edge (tool calls? → tools node, else END) → tools node executes → back to agent. TypedDict state flows and accumulates."
+- All pages now use `API_BASE` (not `localhost:8001`) for fetch calls
+- Debrief auto-loads sessions from memory
+- Session ID generated on mount and shown clearly on Analyse page
 
 ---
 
-# SECTION 6 — IMPORTANT ARCHITECTURE DECISIONS
+## SECTION 6 — DEPLOYMENT HISTORY
 
-## LangChain chosen because:
-- Largest ecosystem, most job postings mention it
-- LCEL provides clean composable syntax
-- Auto-LangSmith tracing
-- 200+ integrations
-- Rejected: LlamaIndex (RAG-only focus, fewer agent capabilities), Haystack (less Python-native)
+### Issue 1: Docker — Dependency Version Conflict
+**Problem:** `langchain-core==0.2.10` conflicted with `langgraph==0.1.9` (needs `>=0.2.19`)
+**Root Cause:** Pinned versions too tight
+**Fix:** Bumped `langchain-core` to `0.2.19`
 
-## LangGraph chosen because:
-- Official LangChain extension — same ecosystem
-- Fine-grained control over agent state and transitions
-- Conditional edges enable true agent behaviour
-- Rejected: Crew AI (higher abstraction, less control), AutoGen (more complex setup)
+### Issue 2: Docker — Multi-Stage Build Memory (OOM)
+**Problem:** `HuggingFaceEmbeddings` model download at build time → OOM on Railway 512MB
+**Root Cause:** Pre-downloading 90MB model + all deps exceeds RAM
+**Fix:** Removed pre-download from Dockerfile. Model loads on first request instead.
 
-## ChromaDB chosen because:
-- Local/embedded — no external server needed
-- Persistent to disk — survives restarts
-- Strong LangChain integration
-- Free, no API key needed
-- Rejected: Pinecone (requires paid account for production), FAISS (in-memory only, needs custom persistence)
-- **Future:** Move to Pinecone for multi-user production deployment
+### Issue 3: Docker — PORT Variable Not Expanding
+**Problem:** `CMD ["uvicorn", ..., "--port", "$PORT"]` → Railway couldn't expand `$PORT`
+**Root Cause:** Docker `CMD` array form doesn't use shell, so `$PORT` is literal
+**Fix:** Changed to `CMD sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"`
 
-## OpenRouter chosen because:
-- Groq was first choice (fast, free) but 100K token/day limit hit in 3 test runs
-- Gemini direct tried next but 20 requests/day free tier is too restrictive
-- OpenRouter: 300+ models, generous limits, one API key, OpenAI-compatible API format
-- Migration was zero-cost architecturally: just change `ChatOpenAI` base_url and api_key
+### Issue 4: Render — Python 3.14 Default
+**Problem:** Render defaulted to Python 3.14; `pydantic-core 2.18.2` has no wheel for it → compilation fails
+**Root Cause:** `runtime.txt` in subdirectory ignored by Render; env var `PYTHON_VERSION` also not working initially
+**Fix:** Switched from pinned to unpinned requirements (`>=`) so pip resolves compatible wheels. Eventually switched to Railway entirely.
 
-## Gemini 2.5 Flash chosen because:
-- Cheap per token vs GPT-4o
-- 1M token context window (no truncation concerns)
-- Fast response time
-- Good structured JSON output reliability
-- GPT-4o rejected: higher cost, same tasks don't need complex reasoning
+### Issue 5: Railway — Gunicorn Default Start Command
+**Problem:** Railway defaulted to `gunicorn your_application.wsgi` which doesn't exist
+**Root Cause:** Railway couldn't detect FastAPI automatically
+**Fix:** Set custom start command: `sh -c "uvicorn main:app --host 0.0.0.0 --port $PORT"`
 
-## Cache-First Architecture chosen because:
-- Skill Gaps page called same LLM analysis as Analyse page — identical results, wasted tokens
-- Users visit Skill Gaps 3-5x per session
-- Solution: save full analysis_data JSON to ChromaDB after analysis, read from cache on all subsequent visits
-- Result: ~60% token reduction across application
+### Issue 6: Railway — Wrong Port in Domain
+**Problem:** Domain generated with port 8080 but app runs on 8001
+**Root Cause:** Railway domain generation asked for port, defaulted to 8080
+**Fix:** Changed target port to 8001 in Railway networking settings
 
-## useRef for async values (not useState) because:
-- Bug found: resume_filename was empty string when saveToMemory async function executed
-- Root cause: React closures capture state at render time, not execution time
-- useRef is mutable — always reflects latest value regardless of when async function runs
-- Applied to: sessionIdRef, resumeFilenameRef, jdFilenameRef
+### Issue 7: Vercel — Frontend Not Found (404)
+**Problem:** `careerapex-ai.vercel.app/dashboard` → 404
+**Root Cause:** Framework preset was "Other" not "Next.js" — Vercel treated it as static site
+**Fix:** Changed Framework Preset to "Next.js" in Vercel Build and Deployment settings → redeployed
 
-## Voice session ID generated at resume selection time (not analysis time) because:
-- Bug: New session_id was generated at handleAnalyse() time
-- JD had already been uploaded to OLD session_id
-- Analysis used NEW session_id — "No JD found" error
-- Fix: Generate new session_id immediately when user selects previous resume from dropdown
-- JD upload then uses the correct new session_id
+### Issue 8: Vercel — Frontend Directory Not Found
+**Problem:** Vercel couldn't find `frontend/` directory in repo
+**Root Cause:** `frontend/` had its own nested `.git` folder → treated as submodule
+**Fix:** `Remove-Item -Recurse -Force frontend/.git` → re-add as regular directory → push
 
-## Alex as fixed interviewer name because:
-- "I'm [Your Name]" looked unprofessional and broken
-- Fixed name creates consistent brand identity
-- Same voice settings every time creates reliability
-- Users relate better to a named interviewer
+### Issue 9: Hardcoded localhost:8001
+**Problem:** Cloud frontend made API calls to `localhost:8001` → failed silently → sessions never saved
+**Root Cause:** Pages used hardcoded URL instead of `process.env.NEXT_PUBLIC_API_URL`
+**Files affected:** `analyse/page.tsx`, `gaps/page.tsx`, `memory/page.tsx`, `voice/page.tsx`, `roadmap/page.tsx`
+**Fix:** Added `const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"` to each file
 
-## 5-question limit on Voice Interview because:
-- No limit = sessions ran indefinitely, no natural ending
-- Users don't know when it will end
-- 5 questions is enough for meaningful practice (~15-20 minutes)
-- Warning at Q4 and Q5 prepares user
-- Auto-feedback after Q5 completes the loop professionally
+### Issue 10: Railway Sleep / Voice Interview Blank Screen
+**Problem:** Voice interview shows blank screen after Q1 on cloud
+**Root Cause:** Railway free tier sleeps after 15min → `/interview/chat` times out → error handler sets `status="ended"` → blank render
+**Fix:** Added `"ended"` to render condition so screen stays visible with error. Keepalive ping on page load to wake Railway. But root issue is Railway sleep — no perfect fix on free tier.
 
-## Memory.py naming (not memory_router.py) because:
-- `main.py` imports: `from routers.memory import router as memory_router`
-- File MUST be named `memory.py` in the routers folder
-- If named `memory_router.py`, FastAPI crashes with `ModuleNotFoundError: No module named 'routers.memory'`
+### Issue 11: Input Field Loses Focus (Negotiate + LinkedIn)
+**Problem:** Input fields only accept one character at a time
+**Root Cause:** `Field` component defined inside the parent component → React recreates function on every state change → unmounts + remounts input → loses focus
+**Fix:** Moved `Field` component definition OUTSIDE the `export default function`
 
-## Pydantic for all LLM output because:
-- Type safety: if LLM returns `gap_score: "high"` (string) instead of int, Pydantic catches it immediately
-- Better than debugging a downstream crash
-- Self-documenting: the Pydantic model IS the API contract
+### Issue 12: Docker — frontend submodule
+**Problem:** `Compress-Archive` on first zip attempt included `.git` inside frontend → 323MB zip
+**Fix:** Remove `.git` from frontend before zipping
+
+### Lessons Learned
+
+1. Always set `output: "standalone"` in `next.config.ts` for Docker builds
+2. Railway free tier is NOT suitable for ML models (HuggingFace) in production
+3. Never define React components inside other components
+4. Always use `API_BASE` env var — never hardcode localhost in fetch calls
+5. Railway domain port must be manually set to match app port
+6. Vercel Framework Preset must be "Next.js" not "Other" or "Services"
+7. Docker CMD array form doesn't expand shell variables — use shell form
 
 ---
 
-# SECTION 7 — CURRENT PROJECT STATUS
+## SECTION 7 — KNOWN BUGS
 
-## Completed ✅
-- Dashboard (auto-refresh, KPI rings, recent sessions)
-- Resume Analyser (upload zones, 6-step loader, auto-save, previous resume dropdown)
-- Skill Gap Analysis (session dropdown, cache-first, bar chart, progress bars)
-- Mock Interview (standard + defense mode, multi-turn conversation)
-- Voice Interview (Alex interviewer, 5-question limit, feedback screen, stoppedRef pattern)
-- Interview Debrief (score charts, cover letter)
-- Career Memory (full session list, JD filename, delete with confirmation, progress summary)
-- Salary Negotiation (script + roleplay)
-- LinkedIn Optimizer (profile + headline variants)
-- Career Roadmap (session dropdown, week cards, completion tracking)
-- Career Agent (LangGraph ReAct, 4 tools)
-- LangSmith tracing on all chains
-- Cache-first architecture (~60% token reduction)
-- QA test suite (82 tests, zero LLM calls)
-- README.md
-- J1 Resume Handover Document
-- AI Engineering Master Notes (864 lines)
-- CareerApex Master Handover (this document)
-- GitHub: https://github.com/Koushik2910/careerapex-ai
+### Resolved ✅
 
-## Partially Completed ⚠️
-- Tests: 82 passing, 3 xfailing (known acceptable failures):
-  - `test_upload_no_file_returns_422` — backend closes connection instead of 422
-  - `test_upload_tiny_invalid_pdf` — backend closes connection
-  - `test_evaluate_with_empty_question` — times out (hits LLM path)
-- Interview Debrief: charts work but cover letter not cached per session
-- Roadmap: completion state not persisted (resets on page refresh)
+- Input field loses focus (Negotiate, LinkedIn) — `Field` outside component
+- Sessions not showing in cloud (Skill Gaps, Memory) — `API_BASE` fix
+- Debrief showing zeros — auto-load sessions from memory
+- Vercel 404 — Next.js framework preset
+- Railway port mismatch — set to 8001
+- Docker PORT not expanding — shell form CMD
 
-## Still Needs Work 🔧
-- Authentication (currently single-user, no login)
-- Cloud deployment (currently localhost only)
-- Custom domain and SSL
-- Roadmap progress persistence to database
-- Session search feature (semantic search button exists in backend, not exposed in UI)
-- Mobile-responsive design (desktop only currently)
+### Partially Resolved ⚠️
 
-## Known Bugs
-1. **ChromaDB upsert and session count:** Deleting a session then re-running analysis can cause ChromaDB count to diverge from UI count in rare cases. Refresh fixes it.
-2. **Voice Interview "no-speech":** If user is silent for too long, recognition ends and Alex re-prompts. Occasional double-prompt if network is slow.
-3. **Roadmap parse:** If Gemini doesn't use `WEEK X:` format exactly, `parseRoadmap()` falls back to single block. Works but less structured.
-4. **Previous Resume Dropdown copy-resume:** If `/upload/copy-resume` endpoint doesn't exist in `upload.py`, falls back to original session. Must paste the endpoint code from `upload_router_addition.py`.
+- **Voice interview blank screen on cloud:** Shows error message now instead of blank, but Railway sleep still causes Q2 to fail. Workaround: ping health endpoint before starting interview.
 
-## Technical Debt
-- All 7 chain files duplicate `get_llm()` — should move to shared `backend/utils/llm.py`
-- Error handling in chains is minimal — needs retry logic with tenacity
-- No input sanitisation on upload endpoints (file size limit, MIME type validation)
-- No rate limiting on LLM endpoints (single user currently, no issue)
-- Test fixtures use hardcoded PDF paths — need dynamic generation
+### Open Issues ❌
+
+- **ChromaDB persistence on Railway:** No persistent disk on free tier. Sessions lost on redeploy. Needs Railway paid disk ($0.25/GB/month) or migrate to Pinecone.
+- **Voice interview Q2+ on cloud:** Railway sleep mid-session breaks flow. Need Railway paid tier or Render paid tier.
+- **Roadmap parseRoadmap() fragile:** Breaks if Gemini doesn't use exact `WEEK X:` format.
+- **No file size validation:** Large PDFs can timeout on embedding.
+- **No auth:** Single-user app. Anyone with the URL can access.
+
+### Potential Risks
+
+- OpenRouter API key is in `.env` — do not commit to public GitHub
+- LangSmith API key is in `.env` — same
+- Railway/Vercel free tiers have usage limits
 
 ---
 
-# SECTION 8 — RESPONSE STYLE (How Claude Should Respond to Koushik)
+## SECTION 8 — FUTURE ROADMAP
 
-## Tone
-- Direct and professional
-- No filler words, no motivational preamble
-- No "Great question!", "Happy to help!", "Let me know if you need anything!"
-- Treat Koushik as a capable engineer, not a student
+### Short Term (Next 1-2 weeks)
 
-## Level of Detail
-- Give exactly what was asked — not less, not more
-- If writing code: full file, never partial
-- If giving commands: PowerShell syntax, full absolute paths, copy-paste ready
-- If explaining: use analogies first, then technical explanation
+- Fix ChromaDB persistence (add Railway disk or switch to Pinecone free tier)
+- Fix voice interview cloud issue (Railway paid tier or persistent keepalive)
+- Add file size validation on upload endpoints
+- Mobile responsiveness improvements
+- Retry logic with tenacity on all LLM chain calls
 
-## Preferred Explanation Style
-- **Analogy first, then technical** — always anchor abstract concepts to something physical
-- **CareerApex example** — if the concept is used in CareerApex, reference it
-- **Simple English** — explain like teaching a 20-year-old graduate
-- **No jargon without definition**
+### Medium Term (1-2 months)
 
-## Preferred Learning Style
-- Show working code before explaining theory
-- Explain WHY before HOW
-- One concept at a time, confirm understanding before moving on
+- User authentication (NextAuth.js + simple user table)
+- Multiple resume profiles per user
+- Export interview debrief as PDF
+- Email summary of session results
+- Connect to job boards (Naukri, LinkedIn) via API
 
-## Interview Preparation Style
-- Provide CareerApex-specific answers, not generic answers
-- Format: Question → CareerApex answer → what to emphasise
-- Include code snippets where they strengthen the answer
-- Don't give 10 interview Q&As at once — 5 at a time max
+### Long Term (SaaS)
 
-## Project Planning Style
-- List tasks in order
-- One step at a time — provide step, wait for confirmation
-- If multiple files need changes, provide them all in one zip
-- Always specify exact file paths
+- Multi-tenant architecture
+- Subscription tiers (Free: 3 analyses/month, Pro: unlimited)
+- Company-specific interview prep (upload company interview bank)
+- Team features (manager can review candidate prep)
+- Integration with ATS systems
 
-## Career Guidance Style
-- Direct advice — "Do X because Y" not "You might consider X"
-- Reference target salary (26 LPA) and target role (AI Engineer) in advice
-- Remind Koushik of his strengths (QA background = testable, observable AI)
+### Monetization Ideas
 
-## Coding Guidance Style
-- Full files only — never `// ... rest of code`
-- Windows PowerShell for all commands
-- Absolute paths always (`C:\Users\Azuro\careerapex\...`)
-- Download files (no copy-paste — causes U+00A0 non-breaking space encoding errors)
-- Confirm before proceeding to next step
+- Freemium: 3 free analyses, then ₹499/month
+- B2B: sell to coding bootcamps and placement cells
+- Enterprise: custom models trained on company-specific interview data
 
 ---
 
-# SECTION 9 — RESUME AND LINKEDIN CONTEXT
+## SECTION 9 — HOW TO WORK WITH KOUSHIK
 
-## Professional Summary (Approved by Koushik, Use Verbatim)
-"Senior QA Automation Engineer with 5 years of production experience at Kroll, ITSS Global, and Temenos — now shipping production-grade AI applications."
+### Background
 
-**Note:** Salary mentions explicitly rejected. Transition language ("transitioning into") rejected — positions as already doing AI engineering.
+Koushik is a Senior QA Automation Engineer with ~5 years experience. He is intelligent, hardworking, and genuinely understands engineering. He is actively building AI skills and has covered a lot of ground quickly. He is not a beginner but may need concepts explained clearly the first time.
 
-## Company Naming Rules
-- "Azuro Technologies (Kroll)" — not just "Azuro" or just "Kroll"
-- Role at Kroll: "Kroll Restructuring Application" (not "client work" or "embedded contractor")
+### Communication Style
 
-## Top 4 Resume Bullets (CareerApex)
-1. "Built CareerApex AI, a production-grade AI Career Operating System using LangChain LCEL, LangGraph ReAct agents, ChromaDB RAG, and Gemini 2.5 Flash via OpenRouter — featuring resume gap analysis, mock interviews, voice I/O, salary negotiation roleplay, and career memory with session persistence."
-2. "Engineered a cache-first RAG pipeline that embeds resume/JD documents with HuggingFace `all-MiniLM-L6-v2`, stores structured analysis results in ChromaDB, and serves Skill Gap Analysis with zero LLM re-calls — reducing token consumption by ~60% vs naive re-generation."
-3. "Designed a LangGraph ReAct career agent with 4 custom tools (gap analysis, question generation, answer evaluation, career advice), implementing structured JSON output via Pydantic, multi-turn conversation history management, and full LangSmith tracing for production observability."
-4. "Delivered full-stack AI application (Next.js 14 + FastAPI + Python) with 82 automated Playwright + pytest tests (zero LLM calls in test suite), LangSmith observability, and multi-provider LLM migration (Groq → Gemini → OpenRouter) with single-file configuration change pattern."
+- Direct and efficient. Don't pad responses with unnecessary pleasantry.
+- When he's frustrated (CAPSLOCK, multiple exclamation marks), acknowledge the problem immediately and fix it. Don't explain why it happened before fixing it.
+- He prefers commands he can run right now over theoretical explanations.
+- He is on Windows 11, uses PowerShell. Always give PowerShell commands, not bash/CMD.
+- He prefers downloadable files over copy-pasting code (U+00A0 encoding issues cause SyntaxErrors).
 
-## Top 10 ATS Keywords
-LangChain, LangGraph, Retrieval-Augmented Generation (RAG), ChromaDB, LLM Application Development, FastAPI, Prompt Engineering, Vector Embeddings, AI Agent Development, LangSmith
+### Preferred Explanation Style
 
-## LinkedIn About Section (Use This)
-"I'm a Senior QA Automation Engineer transitioning into AI Engineering — building production-grade AI applications that go beyond tutorials.
+- Lead with what it does, then how it works
+- Use concrete examples, not abstract descriptions
+- For bugs: state root cause first, then fix
+- For architecture: show the data flow (request → response path)
+- For new concepts: connect to something he already knows
 
-My flagship project is CareerApex AI — a full AI Career Operating System I built end-to-end using LangChain, LangGraph, ChromaDB RAG, and Gemini 2.5 Flash. It performs resume gap analysis, conducts voice mock interviews, tracks confidence scores, and generates salary negotiation strategies — all personalised to the user's actual resume and JD.
+### Coding Style Preferences
 
-What I bring to AI engineering roles:
-• RAG pipelines — document ingestion, HuggingFace embeddings, ChromaDB vector storage, cache-first retrieval
-• LangGraph agents — ReAct pattern, tool binding, multi-turn conversation management
-• Production mindset — 82 automated tests, LangSmith observability, structured Pydantic output, LLM provider migration
-• Full-stack delivery — FastAPI backends, Next.js frontends, prompt engineering, token optimization
+- Complete files, not diffs or partial edits
+- Full file paths always specified
+- PowerShell syntax, Windows backslash paths
+- Download files, don't copy-paste
+- `$env:PYTHONIOENCODING="utf-8"` for emoji support in terminal
 
-5 years of QA automation (Selenium, Playwright, pytest, Azure DevOps) means I build AI that is observable, testable, and reliable — not just a demo.
+### Decision-Making Style
 
-Open to: AI Automation Engineer · AI Application Engineer · GenAI Engineer · LLM Engineer (Hyderabad, remote/hybrid)"
+- Practical over perfect. He wants things working, not theoretical
+- He values speed of delivery
+- He respects honesty — if something won't work, say so directly
+- He prefers the simplest solution that solves the problem
 
-## 30-Second Verbal Pitch
-"I built CareerApex AI — a full AI Career Operating System. Users upload their resume and a job description. A LangChain RAG pipeline embeds both using HuggingFace embeddings, stores in ChromaDB, then runs through Gemini 2.5 Flash to produce a gap analysis with match score and prioritised skill gaps. Sessions are cached so Skill Gaps loads with zero LLM calls. There's also a LangGraph ReAct agent, voice interview with a fixed AI interviewer named Alex, confidence tracking, and 82 automated tests. Full LangSmith observability on every chain."
+### How to Mentor Him
+
+- Act as a Staff Engineer + mentor combination
+- Explain the WHY behind decisions, not just the WHAT
+- When he asks "why doesn't this work" — give root cause + fix + lesson learned
+- Map everything back to interview talking points ("here's how you explain this in interviews")
+- Don't overwhelm with options — give one clear recommendation
+
+### How to Break Tasks Into Phases
+
+For any significant change:
+1. Explain what you're going to do and why
+2. Give the fix (downloadable file)
+3. Give the exact commands to apply it
+4. Tell him what to verify
+
+### Things That Frustrate Him
+
+- Getting the same fix multiple times without it working
+- Being asked to paste large amounts of code
+- Vague instructions ("just update the file")
+- Back-and-forth debugging without clear progress
+
+### Interview Coaching Style
+
+After every significant feature or fix, map it to an interview talking point. Example:
+> "For interviews: explain this as 'I migrated from hardcoded API URLs to environment-variable-driven configuration to support multi-environment deployment across local, staging, and production.'"
 
 ---
 
-# SECTION 10 — NEW CHAT INSTRUCTIONS
+## SECTION 10 — PROJECT KNOWLEDGE TRANSFER
 
-## Direct Instructions to Future Claude Chats
+### Critical Files — Never Break These
 
-**READ THIS BEFORE RESPONDING.**
+| File | Why Critical |
+|---|---|
+| `backend/main.py` | Registers all routers. Wrong import name = 500 error |
+| `backend/agents/career_agent.py` | LangGraph agent. Dependency chain is fragile |
+| `backend/utils/chroma_client.py` | All ChromaDB access goes through here |
+| `frontend/app/voice/page.tsx` | Complex state machine. Many interdependencies |
+| `frontend/lib/api.ts` | All API calls. Must use API_BASE |
+| `frontend/components/Sidebar.tsx` | Shared nav. Break this = break all pages |
 
-You are continuing an ongoing AI engineering project with Koushik Gattu. You have full context from this document. Act accordingly.
+### Critical Architecture Decisions
 
-### What You Know
-- Koushik is a Senior QA Engineer transitioning to AI Engineering
-- His main project is CareerApex AI — a full AI Career OS running at localhost:3000 (frontend) and localhost:8001 (backend)
-- The project is at `C:\Users\Azuro\careerapex\`
-- He uses Windows 11, PowerShell, VS Code
-- All AI work on his personal machine (username: Azuro)
-- Kroll work on VDI (username: Koushik.Gattu, no internet)
+1. **`get_llm()` helper:** All chains use this. Never instantiate LLM directly in chain files.
+2. **Cache-first for Skill Gaps/Memory/Roadmap:** These pages must never call LLM independently.
+3. **Session ID on frontend:** Generated on Analyse page mount. User copies it to other pages.
+4. **`API_BASE` everywhere:** Every fetch call must use this. Not localhost.
+5. **Field components outside parent:** Never define React components inside other components.
 
-### How to Respond
-1. **Never ask for context already in this document** — you have it
-2. **Never give partial code** — always full files
-3. **Always PowerShell syntax** — never bash
-4. **Always absolute paths** — `C:\Users\Azuro\careerapex\...`
-5. **One step at a time** — command → wait → confirm → next
-6. **Zip files for download** — never ask to copy-paste code
-7. **Direct and brief** — no motivational preamble
-8. **Use CareerApex examples** — when explaining AI concepts, anchor to CareerApex
+### Things That Should Never Be Changed Casually
 
-### Start Commands (Always Available)
-```cmd
-# Backend
-cd C:\Users\Azuro\careerapex\backend
-venv\Scripts\activate
-uvicorn main:app --reload --port 8001
+- `stoppedRef` pattern in voice interview
+- `useCallback` dependency arrays in voice interview
+- ChromaDB collection name `career_memory`
+- Session ID format (other pages parse it)
+- CORS allow_origins list (must include Vercel URL)
 
-# Frontend
-cd C:\Users\Azuro\careerapex\frontend
-npm run dev
+### Performance Considerations
 
-# URLs
-App: http://localhost:3000
-API: http://localhost:8001/docs
-LangSmith: https://smith.langchain.com
+- HuggingFace model takes 30-60s to load on Railway cold start
+- Large PDFs (>20 pages) take longer to embed
+- Gemini 2.5 Flash responses: 2-5 seconds
+- ChromaDB reads: <100ms (fast)
+
+### Deployment Considerations
+
+- Always test locally before pushing to main (Vercel auto-deploys)
+- Railway auto-deploys on push to main (backend)
+- After backend deploy, test `/health` endpoint before testing UI
+- ChromaDB data wiped on every Railway redeploy
+
+---
+
+## SECTION 11 — RESUME & INTERVIEW MAPPING
+
+### How to Explain CareerApex in Interviews
+
+**One-liner:** "I built a production-grade AI career OS called CareerApex — a full-stack application using Next.js, FastAPI, LangGraph, ChromaDB, and Gemini, deployed on Railway and Vercel."
+
+**LangChain Concepts Used:**
+- LCEL chains for all AI features (gap analyser, question gen, etc.)
+- `ChatOpenAI` with custom `openai_api_base` for OpenRouter
+- `langchain_huggingface.HuggingFaceEmbeddings` for document embedding
+- `langchain_text_splitters` for chunking resumes and JDs
+- LangSmith tracing for observability
+
+**LangGraph Concepts:**
+- ReAct agent with 4 custom tools
+- `create_react_agent` pattern
+- State management across agent steps
+
+**RAG Concepts:**
+- Document ingestion (PDF + DOCX parsing)
+- Chunking strategy (RecursiveCharacterTextSplitter)
+- Embedding + storage (ChromaDB)
+- Retrieval by session ID namespace
+- Context injection into LLM prompt
+
+**Embeddings:**
+- `all-MiniLM-L6-v2` for semantic similarity
+- Why: lightweight, good quality, runs on CPU
+
+**Vector DB:**
+- ChromaDB PersistentClient
+- Session-namespaced collections
+- Semantic search for relevant chunks
+
+**Prompt Engineering:**
+- System prompts per feature
+- Few-shot examples in interview chain
+- Mode-specific prompts (Standard vs Defense interview)
+- Structured output with JSON parsing
+
+**Caching:**
+- Gap analysis results stored in ChromaDB after first run
+- Subsequent pages read from cache — zero LLM calls
+- Reduces latency from 5s to <100ms for Skill Gaps/Memory/Roadmap
+
+**Session Management:**
+- Timestamp-based session IDs
+- Cross-page session continuity
+- Session deletion with ChromaDB cleanup
+
+**Full Stack AI Engineering:**
+- FastAPI backend with async endpoints
+- Next.js 14 App Router frontend
+- TypeScript + Tailwind
+- Docker + Docker Compose
+- Railway + Vercel deployment
+- Environment-variable-driven configuration
+
+---
+
+## SECTION 12 — CHANGELOG
+
+### June 17-18, 2026 — Deployment Sprint
+
+**Backend Deployment:**
+- Built Docker image with multi-stage build (builder + runtime stages)
+- Fixed dependency version conflict: `langchain-core` 0.2.10 → 0.2.19
+- Removed HuggingFace model pre-download (OOM on Railway)
+- Fixed Docker PORT: array CMD → shell CMD
+- Switched from Render to Railway (Render Python 3.14 + OOM issues)
+- Fixed Railway start command (gunicorn → uvicorn)
+- Fixed Railway domain port (8080 → 8001)
+- Backend live at `careerapex-ai-production.up.railway.app`
+
+**Docker Compose:**
+- Full stack (frontend + backend + ChromaDB volume) in one `docker-compose.yml`
+- Fixed healthcheck (removed curl dependency)
+- Volume mount for ChromaDB persistence
+
+**Kubernetes:**
+- Wrote Minikube manifests: Deployment, Service, ConfigMap, Secret, PVC
+- For portfolio/resume value — not used in production
+
+**Frontend Deployment:**
+- Fixed nested `.git` submodule issue in frontend directory
+- Fixed Vercel Framework Preset (Other → Next.js)
+- Frontend live at `careerapex-ai.vercel.app`
+
+**Bug Fixes:**
+- Hardcoded `localhost:8001` replaced with `API_BASE` in 5 pages
+- `Field` component moved outside parent in `negotiate/page.tsx` and `linkedin/page.tsx`
+- Debrief auto-loads sessions (removed hardcoded `"test-session-001"`)
+- Voice interview: added `"ended"` to render conditions (no more blank screen)
+- CORS updated to include Vercel URL
+
+### Earlier — CareerApex Development
+
+- LLM migrations: Groq → direct Gemini → OpenRouter
+- `get_llm()` helper pattern introduced
+- Cache-first architecture for Skill Gaps/Memory/Roadmap
+- React stale closure fix in voice interview (useRef pattern)
+- Backend module naming conflict fixed (memory.py)
+- LangSmith tracing integrated
+- 82 passing tests (79 pass + 3 xfail)
+- 10 pages all functional locally
+
+---
+
+## APPENDIX — VOICE INTERVIEW CRITICAL BUG (June 18, 2026)
+
+### Exact Bug Description
+
+Voice interview goes blank after Q1 answer on BOTH local and cloud.
+
+**Symptoms:**
+- Setup screen shows correctly ✅
+- Alex speaks Q1 ✅
+- User answers, transcript visible ✅
+- "Processing your answer... 2 messages" shows briefly ✅
+- Screen goes completely blank ❌
+
+**Root Cause (confirmed):**
+
+In `voice/page.tsx`, the `askNextQuestion` function has a catch block:
+```typescript
+} catch (e) {
+  setError("Failed to get next question. Please check your connection.");
+  setStatus("ended");
+}
 ```
 
-### When Koushik Asks for Code Changes
-1. Identify the exact file(s) to change
-2. Write complete file(s) — never partial
-3. Create a zip with all changed files
-4. Give PowerShell copy commands with absolute paths
-5. State which services need restart (backend vs frontend)
-
-### When Koushik Asks About AI Concepts
-1. Start with a simple analogy
-2. Give the technical definition
-3. Show how it's used in CareerApex specifically
-4. Give the interview answer version
-
-### When Koushik Asks About Career/Resume
-1. Reference his target (26 LPA, AI Engineer roles)
-2. Use the approved professional summary verbatim
-3. Reference CareerApex as the lead project
-4. Keep "Azuro Technologies (Kroll)" naming convention
-
-### When Koushik Reports a Bug
-1. Look at the screenshot carefully
-2. Identify root cause before suggesting fix
-3. Explain the root cause in one sentence
-4. Provide the fix as a complete file in a zip
-
-### Key Files Quick Reference
-```
-Frontend pages:    C:\Users\Azuro\careerapex\frontend\app\{page}\page.tsx
-Backend routers:   C:\Users\Azuro\careerapex\backend\routers\{router}.py
-Backend chains:    C:\Users\Azuro\careerapex\backend\chains\{chain}.py
-Backend agent:     C:\Users\Azuro\careerapex\backend\agents\career_agent.py
-Session store:     C:\Users\Azuro\careerapex\backend\memory\session_store.py
-Main entry:        C:\Users\Azuro\careerapex\backend\main.py
-API utils:         C:\Users\Azuro\careerapex\frontend\lib\api.ts
-Utils:             C:\Users\Azuro\careerapex\frontend\lib\utils.ts
-Sidebar:           C:\Users\Azuro\careerapex\frontend\components\Sidebar.tsx
-Globals CSS:       C:\Users\Azuro\careerapex\frontend\app\globals.css
-Env file:          C:\Users\Azuro\careerapex\backend\.env
+And the render condition is:
+```typescript
+{(status === "ai-speaking" || status === "listening" || status === "processing") && (
 ```
 
-### Important Gotchas (Know These)
-1. Memory router must be `memory.py` not `memory_router.py` — main.py imports `from routers.memory`
-2. Gemini via OpenRouter returns content as list `[{"type": "text", "text": "..."}]` — need isinstance guard
-3. Voice audio leak — always use stoppedRef pattern on Voice page
-4. Stale closure — always use useRef alongside useState for values used in async callbacks
-5. Copy-paste from Claude chat causes U+00A0 non-breaking space errors — always download files
-6. New session_id for resume reuse must be generated at SELECTION time, not analysis time
-7. `$env:PYTHONIOENCODING="utf-8"` if emoji rendering issues in PowerShell
-8. MySQL service name is `MySQL97` (for other projects, not CareerApex)
+`"ended"` is NOT in the render list. So when error occurs → `status="ended"` → nothing renders → blank screen.
 
----
+**The fix is ONE LINE — add "ended" to render condition:**
 
-*End of CAREERAPEX_MASTER_HANDOVER.md*
-*This document is the single source of truth for all future Claude chats on the CareerApex project.*
-*Koushik Gattu | June 2026*
+Change:
+```typescript
+{(status === "ai-speaking" || status === "listening" || status === "processing") && (
+```
+
+To:
+```typescript
+{(status === "ai-speaking" || status === "listening" || status === "processing" || status === "ended") && (
+```
+
+This is in `frontend/app/voice/page.tsx` around line 411.
+
+**Why it was working before:**
+It wasn't — blank screen after Q1 was always there. The `/interview/chat` backend call was either:
+- Failing due to OpenRouter rate limit
+- Failing due to session ID not having resume context (no session uploaded)
+- Failing due to backend error
+
+**Additional fix needed — show error message when status="ended":**
+
+After the progress bar section, add:
+```typescript
+{status === "ended" && error && (
+  <div style={{ textAlign: "center", padding: 40, color: "#EF4444" }}>
+    <p>{error}</p>
+    <p style={{ marginTop: 12, color: "var(--text-secondary)", fontSize: 13 }}>
+      Please end session and try again.
+    </p>
+  </div>
+)}
+```
+
+**Checklist before Voice Interview works:**
+1. Backend must be running (`uvicorn main:app --port 8001`)
+2. Session ID must be from a valid Analyse session (resume + JD uploaded)
+3. Session ID must have resume context in ChromaDB
+4. Apply the render condition fix above
