@@ -1,5 +1,5 @@
 # CAREERAPEX AI — DEPLOYMENT GUIDE
-**Version:** 2.0 | **Date:** June 18, 2026
+**Version:** 3.0 | **Date:** June 18, 2026
 
 ---
 
@@ -21,7 +21,7 @@
 ```powershell
 cd C:\Users\Azuro\careerapex\backend
 $env:PYTHONIOENCODING="utf-8"
-..\venv\Scripts\activate
+C:\Users\Azuro\careerapex\backend\venv\Scripts\Activate.ps1
 uvicorn main:app --reload --port 8001
 ```
 
@@ -42,76 +42,64 @@ LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=careerapex-ai
 ```
 
-Frontend reads from `frontend/.env.local` (create if missing):
+Frontend reads from `frontend/.env.local`:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8001
 ```
 
 ---
 
-## DOCKER (LOCAL FULL STACK)
+## PUSH AND DEPLOY WORKFLOW
 
-### Build and Run
+### Standard code change
 
 ```powershell
 cd C:\Users\Azuro\careerapex
 
-# Create root .env file (docker-compose reads this)
-@"
-OPENROUTER_API_KEY=sk-or-v1-xxx
-LANGCHAIN_API_KEY=lsv2_xxx
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_PROJECT=careerapex-ai
-"@ | Set-Content ".env" -Encoding UTF8
+# Test locally first, then:
+git add .
+git commit -m "feat/fix/chore: description"
+git push origin main
 
-# Start both containers
-docker compose up --build
+# Vercel deploys frontend automatically (~45s)
+# Railway deploys backend automatically (~3-5 min)
 ```
 
-Visit http://localhost:3000
-
-### Stop
+### After backend deploy, always test
 
 ```powershell
-docker compose down
+# Wait 3-5 minutes for Railway build
+Invoke-RestMethod -Uri "https://careerapex-ai-production.up.railway.app/health"
+# Expected: {"status":"ok"}
 ```
 
-### Stop and wipe ChromaDB
+### After frontend deploy, hard refresh
+
+```
+Ctrl + Shift + R on https://careerapex-ai.vercel.app/dashboard
+```
+
+### Create source zip for upload
 
 ```powershell
-docker compose down -v
+cd C:\Users\Azuro\careerapex
+
+Add-Type -Assembly "System.IO.Compression.FileSystem"
+$source = "C:\Users\Azuro\careerapex"
+$dest   = "C:\Users\Azuro\careerapex_src.zip"
+if (Test-Path $dest) { Remove-Item $dest }
+$exclude = @('node_modules', 'venv', '__pycache__', 'chroma_store', '.next', '.git', '.pytest_cache', '.mypy_cache')
+$zip = [System.IO.Compression.ZipFile]::Open($dest, 'Create')
+Get-ChildItem -Path $source -Recurse -File | Where-Object {
+    $path = $_.FullName
+    -not ($exclude | Where-Object { $path -match [regex]::Escape("\$_\") })
+} | ForEach-Object {
+    $entryName = $_.FullName.Substring($source.Length + 1)
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entryName) | Out-Null
+}
+$zip.Dispose()
+(Get-Item $dest).Length / 1MB | ForEach-Object { "Size: {0:N2} MB" -f $_ }
 ```
-
-### File Locations
-
-| File | Location |
-|---|---|
-| Backend Dockerfile | `backend/Dockerfile` |
-| Frontend Dockerfile | `frontend/Dockerfile` |
-| Docker Compose | `docker-compose.yml` (root) |
-| Backend requirements | `backend/requirements.txt` |
-
-### Backend Dockerfile (current working version)
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential gcc && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-RUN mkdir -p /app/chroma_store
-
-EXPOSE 8001
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}
-```
-
-**IMPORTANT:** Do NOT pre-download HuggingFace model at build time — causes OOM on Railway.
 
 ---
 
@@ -147,26 +135,10 @@ https://railway.app → My Projects → alluring-intuition → careerapex-ai
 Domain: `careerapex-ai-production.up.railway.app`
 Target port: `8001`
 
-### Redeploy
-
-```powershell
-git push origin main
-```
-
-Railway auto-deploys on push. Or use Railway Dashboard → Manual Deploy.
-
-### Test After Deploy
-
-```
-https://careerapex-ai-production.up.railway.app/health
-Expected: {"status":"CareerApex AI is running","version":"1.0.0"}
-```
-
 ### Free Tier Limitations
 
 - 512MB RAM — HuggingFace model uses ~300MB, leaves ~200MB for FastAPI
-- Sleeps after 15 min inactivity
-- First request after sleep: 30-60 seconds
+- Sleeps after 15 min inactivity — first request after sleep: 30-60 seconds
 - No persistent disk — ChromaDB wiped on redeploy
 
 ### Keep Alive (Prevent Sleep)
@@ -174,6 +146,8 @@ Expected: {"status":"CareerApex AI is running","version":"1.0.0"}
 Set up free cron at https://cron-job.org:
 - URL: `https://careerapex-ai-production.up.railway.app/health`
 - Schedule: Every 10 minutes
+
+The AI Voice Studio also pings `/health` on page load to pre-warm Railway before the interview starts.
 
 ---
 
@@ -198,171 +172,79 @@ https://vercel.com → koushik-gattu → careerapex-ai
 |---|---|
 | `NEXT_PUBLIC_API_URL` | `https://careerapex-ai-production.up.railway.app` |
 
-### Auto-Deploy
-
-Vercel auto-deploys on every push to `main` branch. Takes ~45 seconds.
-
-### Manual Redeploy
-
-Vercel Dashboard → Deployments → `...` next to latest → Redeploy
-
-### Test After Deploy
-
-```
-https://careerapex-ai.vercel.app/dashboard
-Should show CareerApex dashboard UI
-```
-
 ---
 
-## KUBERNETES (LOCAL MINIKUBE)
-
-### Install Minikube (one time)
-
-```powershell
-winget install Kubernetes.minikube
-```
-
-### Start Minikube
-
-```powershell
-minikube start --driver=docker --memory=4096 --cpus=2
-```
-
-### Build Images Inside Minikube
-
-```powershell
-# Point Docker to Minikube registry
-& minikube -p minikube docker-env --shell powershell | Invoke-Expression
-
-# Build images
-docker build -t careerapex-backend:latest ./backend
-docker build -t careerapex-frontend:latest ./frontend
-```
-
-### Deploy
-
-```powershell
-# Apply all manifests
-kubectl apply -f k8s/manifests.yaml
-
-# Create secrets
-kubectl create secret generic careerapex-secrets `
-  --from-literal=OPENROUTER_API_KEY=sk-or-v1-xxx `
-  --from-literal=LANGCHAIN_API_KEY=lsv2_xxx `
-  -n careerapex
-```
-
-### Access
-
-```powershell
-minikube service careerapex-frontend-svc -n careerapex
-```
-
-### Monitor
-
-```powershell
-kubectl get pods -n careerapex
-kubectl logs -l app=careerapex-backend -n careerapex
-kubectl describe pod -l app=careerapex-backend -n careerapex
-```
-
-### Stop
-
-```powershell
-minikube stop
-```
-
-### Manifest Location
-
-`careerapex/k8s/manifests.yaml`
-
-Contains: Namespace, ConfigMap, Secret (template), PVC, Backend Deployment, Backend Service, Frontend Deployment, Frontend Service.
-
----
-
-## ENVIRONMENT VARIABLES REFERENCE
-
-### Backend (all required)
-
-| Variable | Description |
-|---|---|
-| `OPENROUTER_API_KEY` | LLM API key (Gemini via OpenRouter) |
-| `LANGCHAIN_API_KEY` | LangSmith tracing key |
-| `LANGCHAIN_TRACING_V2` | `true` to enable tracing |
-| `LANGCHAIN_PROJECT` | `careerapex-ai` |
-| `PORT` | Server port (Railway sets this automatically) |
-
-### Frontend (all required on Vercel)
-
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_API_URL` | Full backend URL including https:// |
-
----
-
-## PUSH AND DEPLOY WORKFLOW
-
-### Standard code change
+## DOCKER (LOCAL FULL STACK)
 
 ```powershell
 cd C:\Users\Azuro\careerapex
 
-# Make changes to files
-# Test locally first
+# Create root .env
+@"
+OPENROUTER_API_KEY=sk-or-v1-xxx
+LANGCHAIN_API_KEY=lsv2_xxx
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_PROJECT=careerapex-ai
+"@ | Set-Content ".env" -Encoding UTF8
 
-git add .
-git commit -m "feat/fix/chore: description"
-git push origin main
-
-# Vercel deploys frontend automatically (~45s)
-# Railway deploys backend automatically (~3-5 min)
+# Start both containers
+docker compose up --build
 ```
 
-### After backend deploy, always test
+Visit http://localhost:3000
 
 ```powershell
-# Wait 3-5 minutes for Railway build
-# Then test
-Invoke-RestMethod -Uri "https://careerapex-ai-production.up.railway.app/health"
+# Stop
+docker compose down
+
+# Stop and wipe ChromaDB
+docker compose down -v
 ```
 
-### After frontend deploy, hard refresh browser
+### Backend Dockerfile
 
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+COPY . .
+RUN mkdir -p /app/chroma_store
+EXPOSE 8001
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}
 ```
-Ctrl + Shift + R on https://careerapex-ai.vercel.app/dashboard
-```
+
+**IMPORTANT:** Do NOT pre-download HuggingFace model at build time — causes OOM on Railway.
 
 ---
 
-## COMMON DEPLOYMENT ISSUES AND FIXES
+## COMMON ISSUES AND FIXES
+
+### Voice Studio blank screen / timeout
+Railway is sleeping. The Voice Studio pings `/health` on load, but if Railway is slow:
+1. Open `https://careerapex-ai-production.up.railway.app/health` in a new tab
+2. Wait for `{"status":"ok"}` response
+3. Return to Voice Studio and start interview
+
+### Voice recognition stops after 2-3 words
+This only happens in non-Chrome browsers. Use Chrome. The Web Speech API continuous mode is Chrome-only.
+
+### Sessions not persisting after Railway redeploy
+Expected on free tier — ChromaDB has no persistent disk. Always complete a full session (Analyse → Interview → Debrief) without redeploying. For persistence, add Railway disk: Dashboard → Storage → Add Disk → mount at `/app/chroma_store`.
+
+### Debrief shows "No interview data found"
+You must complete a Voice Studio or Mock Interview session first. The debrief reads from `/tracker/summary/{session_id}` which is populated during the interview. If you only ran gap analysis, there's no interview data yet.
 
 ### Frontend shows 404
-
 Check Vercel → Settings → Build and Deployment → Framework Preset → must be `Next.js`.
 
 ### Backend shows "Application failed to respond"
-
 Check Railway → Networking → domain target port must be `8001`.
 
-### Backend OOM (out of memory)
-
-HuggingFace model is too large for Railway free tier 512MB. If this happens:
-- Check Railway logs for "Out of memory"
-- The model loads on first request — if first request OOMs, Railway restarts
-- Solution: use Railway Starter plan ($5/month, 1GB RAM)
-
-### Voice interview blank screen on cloud
-
-Railway is sleeping. Open `https://careerapex-ai-production.up.railway.app/health` in browser first. Wait for it to respond. Then start voice interview.
-
-### Sessions not persisting after redeploy
-
-Expected on Railway free tier. ChromaDB has no persistent disk. Always run full flow in one session. For persistence, add Railway disk: Dashboard → Storage → Add Disk → mount at `/app/chroma_store`.
-
 ### CORS error in browser console
-
-`backend/main.py` `allow_origins` list must include your Vercel URL:
+`backend/main.py` `allow_origins` must include your Vercel URL:
 ```python
 allow_origins=[
     "http://localhost:3000",
@@ -374,8 +256,11 @@ allow_origins=[
 
 ## INTERVIEW TALKING POINTS FOR DEPLOYMENT
 
-> "CareerApex is containerised with Docker using a multi-stage build — the builder stage installs Python dependencies, the runtime stage copies only the app code. I use Docker Compose for local development to spin up both FastAPI backend and Next.js frontend with one command, with a persistent volume for ChromaDB.
+> "CareerApex is containerised with Docker — both FastAPI backend and Next.js frontend have their own Dockerfiles, and Docker Compose spins them both up locally with a single command, including a persistent ChromaDB volume.
 
-> For production, the backend runs on Railway using the same Dockerfile, with the start command using shell form to properly expand the `$PORT` environment variable. The frontend is on Vercel, which auto-deploys on every GitHub push in about 45 seconds. The frontend calls the Railway backend via `NEXT_PUBLIC_API_URL` — a single environment variable that makes the same codebase work in local, staging, and production.
+> For production, the backend runs on Railway using the same Dockerfile. The start command uses shell form to expand the `$PORT` environment variable — a lesson learned from Docker CMD array form not expanding shell variables. The frontend is deployed on Vercel, which auto-deploys on every GitHub push in about 45 seconds.
 
-> I also wrote Kubernetes manifests for Minikube — Deployments, Services, ConfigMap, Secrets, and a PersistentVolumeClaim for ChromaDB storage — which gave me hands-on experience with the full K8s primitives without any cloud cost."
+> The frontend is fully environment-variable-driven — a single `NEXT_PUBLIC_API_URL` variable switches the same codebase between local, staging, and production without any code changes. I also implemented a Railway keepalive ping on the Voice Studio page load to pre-warm the backend before users start interviews, which solved the timeout issue on free-tier cold starts.
+
+> I wrote Kubernetes manifests for Minikube as well — Deployments, Services, ConfigMap, Secrets, and a PersistentVolumeClaim for ChromaDB — giving me hands-on experience with the full K8s primitives."
+
